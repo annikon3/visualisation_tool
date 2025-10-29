@@ -18,7 +18,7 @@ CATEGORY_ORDER = [  # priority when collecting from categories
 ]
 
 # TODO: Year filters / timeline separately 
-# TODO: charts should move responsively if smaller screen
+# TODO: Different color dots for boolean or other filter applied to map. 
 # TODO: Assign separate filters for each chart? OR allow to choose a visualisation (map/bar/pie/line chart etc.) Probably the first. 
 
 app = Dash(__name__)
