@@ -20,34 +20,49 @@ def _norm_cols(cols: List[str]) -> List[str]:
     - Ensure uniqueness with suffix '__k' if needed
     """
     def clean(name: str) -> str:
-        out, prev_us = [], False
+        """Return a cleaned version of a single column name."""
+        cleaned_chars = []
+        prev_was_underscore = False
+
         for ch in str(name).strip():
+            # Keep letters, digits, and underscores
             if ch.isalnum() or ch == "_":
-                out.append(ch)
-                prev_us = (ch == "_")
+                cleaned_chars.append(ch)
+                prev_was_underscore = (ch == "_")
             else:
-                if not prev_us:
-                    out.append("_")
-                    prev_us = True
-        s = "".join(out).strip("_") or "col"
-        return s
+                # Replace any non-allowed character with one underscore
+                if not prev_was_underscore:
+                    cleaned_chars.append("_")
+                    prev_was_underscore = True
+
+        # Join characters and remove underscores from both ends
+        cleaned = "".join(cleaned_chars).strip("_")
+
+        # Use a fallback name if the result is empty
+        return cleaned or "col"
     
-    seen, result = set(), []
-    for c in cols:
-        base = clean(c)
-        if base in seen:
-            k = 1
-            while f"{base}__{k}" in seen:
-                k += 1
-            base = f"{base}__{k}"
-        seen.add(base)
-        result.append(base)
-    return result
-    
+    # Main normalization loop
+    seen = set()
+    normalized = []
+
+    for original_name in cols:
+        base_name = clean(original_name)
+
+        # Ensure uniqueness: add suffixes like "__1", "__2", etc.
+        if base_name in seen:
+            suffix = 1
+            while f"{base_name}__{suffix}" in seen:
+                suffix += 1
+            base_name = f"{base_name}__{suffix}"
+
+        seen.add(base_name)
+        normalized.append(base_name)
+
+    return normalized
     
 def _parse_dates(series: pd.Series) -> pd.Series:
     """
-    Parse dates robustly:
+    Parse dates:
     1) Try common explicit date formats
     2) Fallback to flexible parser with dayfirst=True (UTC)
     """
@@ -62,8 +77,8 @@ def _parse_dates(series: pd.Series) -> pd.Series:
 
 def _is_likely_date(colname: str) -> bool:
     """Heuristic: does the column name hint a date/time field?"""
-    n = str(colname).lower()
-    return any(key in n for key in DATE_KEYWORDS)
+    name = str(colname).lower()
+    return any(key in name for key in DATE_KEYWORDS)
 
 
 def _coerce_numbers_from_str(col: pd.Series, thr: float = 0.8) -> pd.Series:
@@ -73,17 +88,20 @@ def _coerce_numbers_from_str(col: pd.Series, thr: float = 0.8) -> pd.Series:
     """
     if not pd.api.types.is_string_dtype(col):
         return col
+    
+    # Take a sample of up to 200 non-null string values
     sample = col.dropna().astype(str).head(200)
     if sample.empty:
         return col
     
+    # Normalize decimal commas to dots and try converting
     sample_norm = sample.str.replace(",", ".", regex=False)
     try:
         probe = pd.to_numeric(sample_norm)
     except Exception:
         return col
 
-    # If at least thr portion of values convert --> convert whole column
+    # If at least thrershold portion of values convert --> convert whole column
     if probe.notna().mean() >= thr:
         return pd.to_numeric(col.str.replace(",", ".", regex=False), errors="coerce")
     return col
@@ -98,14 +116,17 @@ def _normalize_empty_strings(df: pd.DataFrame) -> pd.DataFrame:
     empty_tokens = {t.strip() for t in EMPTY_TOKENS}
 
     def normalize_value(val):
+        """Return pd.NA if value is a known empty token, else return it unchanged."""
         if isinstance(val, str) and val.strip() in empty_tokens:
             return pd.NA
         return val
 
     # Go through columns and normalize only textual ones
-    for col in df.select_dtypes(include=["object", "string"]).columns:
-        df[col] = df[col].map(normalize_value)
-
+    text_columns = df.select_dtypes(include=["object", "string"]).columns
+    
+    for column in text_columns:
+        df[column] = df[column].map(normalize_value)
+    
     return df
 
 
@@ -113,9 +134,11 @@ def _normalize_empty_strings(df: pd.DataFrame) -> pd.DataFrame:
 def _find_lat_lon(df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
     """
     Find lat/lon columns by simple name lists. Requires BOTH to exist to be usable.
+    Normalize all column names to lowercase for comparison. 
     """
-    lat = next((c for c in df.columns if str(c).lower() in LAT_NAMES), None)
-    lon = next((c for c in df.columns if str(c).lower() in LON_NAMES), None)
+    lower_cols = [str(c).lower() for c in df.columns]
+    lat = next((c for c in df.columns if lower_cols in LAT_NAMES), None)
+    lon = next((c for c in df.columns if lower_cols in LON_NAMES), None)
     return lat, lon
 
 
@@ -146,17 +169,25 @@ def _kkj_to_wgs84(easting: pd.Series, northing: pd.Series) -> Tuple[pd.Series, p
     Fallback to NaNs on failure.
     """
     try:
-        # (x, y) -> (lon, lat)
-        tf = Transformer.from_crs(2393, 4326, always_xy=True)
+        # Convert to numeric (invalid entries -> NaN)
         x = pd.to_numeric(easting, errors="coerce")
         y = pd.to_numeric(northing, errors="coerce")
-        lon, lat = tf.transform(x.values, y.values)
-        return pd.Series(lat, index=easting.index), pd.Series(lon, index=easting.index)
-    except Exception:
-        # pyproj not installed or transform failed
-        n = len(easting)
-        return pd.Series([np.nan] * n, index=easting.index), pd.Series([np.nan] * n, index=easting.index)
 
+        # Transform (x, y) -> (lon, lat)
+        tf = Transformer.from_crs(2393, 4326, always_xy=True)
+        lon, lat = tf.transform(x.values, y.values)
+
+        # Create Series and drop out-of-range coordinates
+        lat = pd.Series(lat, index=easting.index).where(lambda s: s.between(-90, 90))
+        lon = pd.Series(lon, index=easting.index).where(lambda s: s.between(-180, 180))
+        return lat, lon
+    
+    except Exception:
+        # Return all-NaN series if transform fails
+        n = len(easting)
+        return (pd.Series([np.nan] * n, index=easting.index),
+                pd.Series([np.nan] * n, index=easting.index))
+    
 
 # ---- MAIN FUNCTION ----
 def preprocess_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -197,10 +228,13 @@ def preprocess_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     lat_name, lon_name = _find_lat_lon(df)
 
     if lat_name and lon_name:
+        # Cast to numeric and invalidate out-of-range values immediately
+        lat = pd.to_numeric(df[lat_name], errors="coerce").where(lambda s: s.between(-90, 90))
+        lon = pd.to_numeric(df[lon_name], errors="coerce").where(lambda s: s.between(-180, 180))
         if "latitude" not in df.columns:
-            new_cols["latitude"]  = pd.to_numeric(df[lat_name], errors="coerce")
+            new_cols["latitude"] = lat
         if "longitude" not in df.columns:
-            new_cols["longitude"] = pd.to_numeric(df[lon_name], errors="coerce")
+            new_cols["longitude"] = lon    
     else:
         kx, ky = _has_kkj_xy(df)
         if kx and ky:
@@ -211,19 +245,14 @@ def preprocess_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if new_cols:
         df = pd.concat([df, pd.DataFrame(new_cols, index=df.index)], axis=1)
 
-    # 6) Coordinate sanity (validate ranges and null out invalids)
-    if {"latitude", "longitude"} <= set(df.columns):
-        ok = df["latitude"].between(-90, 90) & df["longitude"].between(-180, 180)
-        df.loc[~ok, ["latitude", "longitude"]] = np.nan
-
-    # 7) Round floats
+    # 6) Round floats
     float_cols = df.select_dtypes(include="float").columns
     if len(float_cols):
         df[float_cols] = df[float_cols].round(DECIMALS)
 
-    # 8) Normalize empties and drop empty rows/cols
+    # 7) Normalize empties and drop empty rows/cols
     df = _normalize_empty_strings(df)
     df = df.dropna(axis=0, how="all").dropna(axis=1, how="all")
 
-    # 9) Defragmented copy back
+    # 8) Return defragmented copy
     return df.copy().reset_index(drop=True)
