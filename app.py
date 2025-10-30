@@ -1,4 +1,3 @@
-import json
 import base64, io
 from io import StringIO
 import pandas as pd
@@ -8,20 +7,19 @@ from dash import Dash, dcc, html, Input, Output, State
 from preprocessing.analysis_pipeline import preprocess_dataframe
 from preprocessing.column_classifier import categorize_columns
 
-# --- preselect & cap settings ---
+# ---------- Settings for preselect & cap ----------
 MAX_PER_CAT = 4     # how many columns per category to preselect
 MAX_KEEP    = 40    # total cap for selected (active) columns
 ALL = "__ALL__"     # sentinel value meaning no filtering
 CATEGORY_ORDER = [  # priority when collecting from categories
-    "Coordinates", "Time", "Species", "Region or area", "Site type", "Counts", "Lengths",
+    "Coordinates", "Time", "Boolean", "Region or area", "Species", "Site type", "Counts", "Lengths",
     "Numeric", "Text", "Other"
 ]
 
-# TODO: Year filters as multi-selects that changes choice for all charts at once. 
-# TODO: Boolean type to column categorizing.
-# TODO: Different color dots for boolean or other filter applied to map. 
+# TODO: Time filters as always visible multi-selects or checkboxes that changes choice for all charts at once. Add a "all" option. 
+# TODO: Different color dots for generic filter applied to map. 
 # TODO: Move Bar axes filters to sit with bar chart, pie column with pie chart. Keep year choices and common "Filter column" under "Choose filters" text. 
-# TODO: Add multiselection for charts showed or loaded (don't show all charts by default). 
+# TODO: Add multiselection ticks or boxes for charts opened (don't show all charts by default). 
 # TODO: Add description or guidelines to categorized columns (describe what the list is)
 # TODO: Add description: what "Choose columns for analysis" is and what it does. 
 # TODO: Add descriptions to filters. 
@@ -60,18 +58,13 @@ app.layout = html.Div([
     # C) Visualisation controls (vis filters + axes + time filter)
     html.H2("Choose filters"),
     html.Div([
-        # Filter: choose a column and then its value
+        # Generic filter (column -> value)
         dcc.Dropdown(id="filter_col", placeholder="Filter column"),
         dcc.Dropdown(id="filter_val", placeholder="Filter value"),
 
-        # Time filtering: pick a time column and then a year range
-        dcc.Dropdown(id="time_col", placeholder="Time column"),
-        dcc.RangeSlider(
-            id="year_range",
-            min=0, max=1, value=[0, 1],  # safe defaults
-            marks={}, allowCross=False,
-            disabled=True                # activate only when data available
-        ),
+        # Time filtering (column -> multi-year values)
+        dcc.Dropdown(id="time_col",   placeholder="Time column"),
+        dcc.Dropdown(id="year_values", multi=True, placeholder="Years (multi-select)"),
 
         # Axes for bar + column for pie
         dcc.Dropdown(id="x_col", placeholder="Bar X (categorical)"),
@@ -342,76 +335,57 @@ def fill_filter_values(selected_col, data_json, active_cols):
 def fill_time_column_options(meta, active_cols, data_json):
     """
     Suggest time columns from 'Time' category, limited to active columns.
-    Accept datetime, integer-like or string (year-like) columns as candidates.
     """
     if not meta or not active_cols or not data_json:
         return [], None
 
     df = pd.read_json(StringIO(data_json), orient="split")
-
+    
+    # Pick candidates from Time category that exist in df and are active
     time_candidates = [c for c in meta.get("Time", []) if c in active_cols and c in df.columns]
 
-    # Prefer datetime64 and integer-like columns; fall back to all time candidates
-    def is_timey(col):
-        s = df[col]
-        return pd.api.types.is_datetime64_any_dtype(s) or pd.api.types.is_integer_dtype(s) or pd.api.types.is_string_dtype(s)
+    # Prefer datetime/int/string (in that order); fall back to all time candidates
+    def rank(c):
+        s = df[c]
+        if pd.api.types.is_datetime64_any_dtype(s): 
+            return 0
+        if pd.api.types.is_integer_dtype(s):       
+            return 1
+        if pd.api.types.is_string_dtype(s):        
+            return 2
+        return 3
+    time_candidates.sort(key=rank)
 
-    time_candidates = [c for c in time_candidates if is_timey(c)]
-    options = [{"label": c, "value": c} for c in time_candidates]
+    opts = [{"label": c, "value": c} for c in time_candidates]
     default = time_candidates[0] if time_candidates else None
-    return options, default
+    return opts, default
 
 
 @app.callback(
-    Output("year_range", "min"),
-    Output("year_range", "max"),
-    Output("year_range", "value"),
-    Output("year_range", "marks"),
-    Output("year_range", "disabled"),
+    Output("year_values", "options"),
+    Output("year_values", "value"),
     Input("time_col", "value"),
     Input("data", "data"),
     prevent_initial_call=True
 )
-def configure_year_range(time_col, data_json):
-    """
-    Compute [min_year, max_year], slider marks for the chosen time column.
-    Toggle disabled. 
-    Works with datetime columns and year-like numeric/string columns.
-    """
-    # Fallback: no proper time columns -> return safe defaults and disable
+def fill_year_values(time_col, data_json):
+    """Populate the multi-select with distinct years from the chosen time column."""
     if not time_col or not data_json:
-        return 0, 1, [0, 1], {}, True
-
+        return [], []
     df = pd.read_json(StringIO(data_json), orient="split")
     if time_col not in df.columns:
-        return 0, 1, [0, 1], {}, True
+        return [], []
 
     s = df[time_col]
-
-    # Normalize to 'year' integers:
-    # - if datetime --> take .dt.year
-    # - else try numeric cast; if string, try coercion
-    if pd.api.types.is_datetime64_any_dtype(s):
-        years = s.dropna().dt.year
-    else:
-        years = pd.to_numeric(s, errors="coerce").dropna().astype(int)
-
+    # Normalize to year integers
+    years = s.dt.year.dropna() if pd.api.types.is_datetime64_any_dtype(s) else pd.to_numeric(s, errors="coerce").dropna().astype(int)
     if years.empty:
-        return 0, 1, [0, 1], {}, True
+        return [], []
+    uniq = sorted(years.unique().tolist())
+    opts = [{"label": str(y), "value": int(y)} for y in uniq]
 
-    y0, y1 = int(years.min()), int(years.max())
-    if y0 == y1:
-        # Yksi vuosi → tee kapea mutta kelvollinen arvoalue
-        y_min, y_max, val = y0 - 1, y0 + 1, [y0 - 1, y0 + 1]
-        marks = {y0: str(y0)}
-    else:
-        y_min, y_max, val = y0, y1, [y0, y1]
-        marks = {y_min: str(y_min), y_max: str(y_max)}
-        if y_max - y_min >= 6:
-            mid = (y_min + y_max) // 2
-            marks[mid] = str(mid)
-
-    return y_min, y_max, val, marks, False
+    # Default: select all years (user can narrow down)
+    return opts, uniq
 
 
 # ---------- Visualisations: map + bar + pie ----------
@@ -427,15 +401,15 @@ def configure_year_range(time_col, data_json):
     Input("y_col", "value"),
     Input("pie_col", "value"),
     Input("time_col", "value"),
-    Input("year_range", "value"),
+    Input("year_values", "value"),
     prevent_initial_call=True
 )
-def render_figures(data_json, active_cols, filter_col, filter_val, x_col, y_col, pie_col, time_col, year_range):
+def render_figures(data_json, active_cols, filter_col, filter_val, x_col, y_col, pie_col, time_col, year_values):
     """
     Render map, bar, and pie figures from the current dataset and selections.
-
     - Only columns in `active_cols` are used (plus latitude/longitude if present).
-    - Apply optional filter (column + value), "ALL" means no filtering.
+    - Apply (optional) generic filter (column + value), "ALL" means no filtering.
+    - Apply (optional) year multi-select.
     - Map draws points if latitude/longitude exist.
     - Bar: mean(Y) by X if numeric Y is provided; else counts by X.
     - Pie: distribution of selected categorical column.
@@ -453,24 +427,16 @@ def render_figures(data_json, active_cols, filter_col, filter_val, x_col, y_col,
         return empty, empty, empty
     df = df[keep_cols]
 
-    # Optional filter (skip if "ALL")
+    # Optional generic filter (skip if "ALL")
     if filter_col and filter_col in df.columns and filter_val not in (None, ALL):
         # Compare as string to handle numbers/booleans uniformly
         df = df[df[filter_col].astype(str) == str(filter_val)]
 
-    # Optional time filter (year range) 
-    if time_col and time_col in df.columns and year_range and len(year_range) == 2:
-        y0, y1 = year_range
+    # Optional year multi-select filter
+    if time_col and time_col in df.columns and year_values:
         s = df[time_col]
-
-        # Extract year vector robustly
-        if pd.api.types.is_datetime64_any_dtype(s):
-            years = s.dt.year
-        else:
-            years = pd.to_numeric(s, errors="coerce").astype("Int64")
-
-        mask = years.ge(y0) & years.le(y1)
-        df = df.loc[mask.fillna(False)]
+        years = s.dt.year if pd.api.types.is_datetime64_any_dtype(s) else pd.to_numeric(s, errors="coerce").astype("Int64")
+        df = df[years.isin(set(year_values))]
    
     # --- MAP: requires latitude/longitude ---
     fig_map = empty
@@ -494,13 +460,12 @@ def render_figures(data_json, active_cols, filter_col, filter_val, x_col, y_col,
     if x_col in df.columns and y_col in df.columns and pd.api.types.is_numeric_dtype(df[y_col]):
         # Mean of Y by X, if both selected and valid
         grouped = df.groupby(x_col, dropna=False, observed=True)[y_col].mean(numeric_only=True).reset_index()
-        # If X is a datetime column, show a line (time series) for clarity
-        fig_bar = px.line(grouped, x=x_col, y=y_col, markers=True) if pd.api.types.is_datetime64_any_dtype(df[x_col]) else px.bar(grouped, x=x_col, y=y_col)
+        fig_bar = px.bar(grouped, x=x_col, y=y_col)
     elif x_col in df.columns:
         # Counts by X
-        counts = df[x_col].value_counts(dropna=False).reset_index()
-        counts.columns = [x_col, "count"]
-        fig_bar = px.bar(counts, x=x_col, y="count")
+        grouped = df[x_col].value_counts(dropna=False).reset_index()
+        grouped.columns = [x_col, "count"]
+        fig_bar = px.bar(grouped, x=x_col, y="count")
     else:
         fig_bar = empty
 
