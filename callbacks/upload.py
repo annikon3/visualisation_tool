@@ -1,3 +1,8 @@
+# -------------------------------------------------------------------
+# Single responsibility: 
+# handle file upload -> read -> preprocess -> categorize -> store
+# -------------------------------------------------------------------
+
 from __future__ import annotations
 import base64, io
 import pandas as pd
@@ -6,10 +11,6 @@ from dash import Input, Output, State
 from utils.ids import IDS
 from services.preprocess import preprocess_dataframe
 from services.classify import categorize_columns
-
-# ---------- Single responsibility: ----------
-# handle file upload -> read -> preprocess -> categorize -> store
-
 
 # Small helper kept local to this feature.
 def _read_uploaded(contents: str, filename: str) -> pd.DataFrame:
