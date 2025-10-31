@@ -1,9 +1,9 @@
 import base64, io
-from io import StringIO
 import pandas as pd
 import plotly.express as px
-from dash import Dash, html, Input, Output, State
 
+from dash import Dash, html, Input, Output, State
+from utils.ids import IDS
 from layout import build_layout
 from utils.helpers import json_to_df, flatten_unique, make_options, typed_lists, extract_years
 
@@ -39,10 +39,10 @@ app.layout = build_layout()
 
 # ---------- Upload + preprocessing ----------
 @app.callback(
-    Output("data", "data"),
-    Output("meta", "data"),
-    Input("upload", "contents"),
-    State("upload", "filename"),
+    Output(IDS.DATA, "data"),
+    Output(IDS.META, "data"),
+    Input(IDS.UPLOAD, "contents"),
+    State(IDS.UPLOAD, "filename"),
     prevent_initial_call=True
 )
 def handle_upload(contents, filename):
@@ -73,9 +73,9 @@ def handle_upload(contents, filename):
 
 # ---- A) Category list ----  
 @app.callback(
-    Output("category", "options"),
-    Output("category", "value"),
-    Input("meta", "data"),
+    Output(IDS.CATEGORY, "options"),
+    Output(IDS.CATEGORY, "value"),
+    Input(IDS.META, "data"),
     prevent_initial_call=True
 )
 def fill_categories(meta):
@@ -95,9 +95,9 @@ def fill_categories(meta):
 
 
 @app.callback(
-    Output("columns-view", "children"),
-    Input("meta", "data"),
-    Input("category", "value"),
+    Output(IDS.COLUMNS_VIEW, "children"),
+    Input(IDS.META, "data"),
+    Input(IDS.CATEGORY, "value"),
     prevent_initial_call=True
 )
 def show_columns(meta, selected_category):
@@ -110,10 +110,10 @@ def show_columns(meta, selected_category):
 
 # ---- B) Column selection dropdown ----
 @app.callback(
-    Output("keep_cols", "options"),
-    Output("keep_cols", "value"),
-    Input("meta", "data"),
-    Input("data", "data"),
+    Output(IDS.KEEP_COLS, "options"),
+    Output(IDS.KEEP_COLS, "value"),
+    Input(IDS.META, "data"),
+    Input(IDS.DATA, "data"),
     prevent_initial_call=True
 )
 def init_keep_cols(meta, data_json):
@@ -186,12 +186,12 @@ def update_active_cols(selected_cols):
 
 # ---- C) Populate dropdown menus options = selectors for filters, axes for bar, pie ----
 @app.callback(
-    Output("filter_col","options"),
-    Output("x_col","options"),
-    Output("y_col","options"),
-    Output("pie_col","options"),
-    Input("active_cols","data"),
-    Input("data","data"),
+    Output(IDS.FILTER_COL,"options"),
+    Output(IDS.X_COL,"options"),
+    Output(IDS.Y_COL,"options"),
+    Output(IDS.PIE_COL,"options"),
+    Input(IDS.ACTIVE_COLS,"data"),
+    Input(IDS.DATA,"data"),
     prevent_initial_call=True
 )
 def fill_selectors(active_cols, data_json):
@@ -220,11 +220,11 @@ def fill_selectors(active_cols, data_json):
 
 # ---------- Filter value dropdown ----------
 @app.callback(
-    Output("filter_val", "options"),
-    Output("filter_val", "value"),
-    Input("filter_col", "value"),
-    Input("data", "data"),
-    State("active_cols","data"),
+    Output(IDS.FILTER_VAL, "options"),
+    Output(IDS.FILTER_VAL, "value"),
+    Input(IDS.FILTER_COL, "value"),
+    Input(IDS.DATA,       "data"),
+    State(IDS.ACTIVE_COLS, "data"),
     prevent_initial_call=True
 )
 def fill_filter_values(selected_col, data_json, active_cols):
@@ -261,11 +261,11 @@ def fill_filter_values(selected_col, data_json, active_cols):
 
 # ---------- Time column (pick a single time-like column) ----------
 @app.callback(
-    Output("time_col", "options"),
-    Output("time_col", "value"),
-    Input("meta", "data"),
-    Input("active_cols", "data"),
-    Input("data", "data"),
+    Output(IDS.TIME_COL, "options"),
+    Output(IDS.TIME_COL, "value"),
+    Input(IDS.META, "data"),
+    Input(IDS.ACTIVE_COLS, "data"),
+    Input(IDS.DATA, "data"),
     prevent_initial_call=True
 )
 def fill_time_column_options(meta, active_cols, data_json):
@@ -296,10 +296,10 @@ def fill_time_column_options(meta, active_cols, data_json):
 
 # ---------- Year multi-select, driven by chosen time_col ----------
 @app.callback(
-    Output("year_values", "options"),
-    Output("year_values", "value"),
-    Input("time_col", "value"),
-    Input("data", "data"),
+    Output(IDS.YEAR_VALUES, "options"),
+    Output(IDS.YEAR_VALUES, "value"),
+    Input(IDS.TIME_COL, "value"),
+    Input(IDS.DATA, "data"),
     prevent_initial_call=True
 )
 def fill_year_values(time_col, data_json):
@@ -326,18 +326,18 @@ def fill_year_values(time_col, data_json):
 
 # ---------- Visualisations: map + bar + pie ----------
 @app.callback(
-    Output("fig_map", "figure"),
-    Output("fig_bar", "figure"),
-    Output("fig_pie", "figure"),
-    Input("data", "data"),
-    Input("active_cols","data"),
-    Input("filter_col", "value"),
-    Input("filter_val", "value"),
-    Input("x_col", "value"),
-    Input("y_col", "value"),
-    Input("pie_col", "value"),
-    Input("time_col", "value"),
-    Input("year_values", "value"),
+    Output(IDS.FIG_MAP, "figure"),
+    Output(IDS.FIG_BAR, "figure"),
+    Output(IDS.FIG_PIE, "figure"),
+    Input(IDS.DATA,        "data"),
+    Input(IDS.ACTIVE_COLS, "data"),
+    Input(IDS.FILTER_COL,  "value"),
+    Input(IDS.FILTER_VAL,  "value"),
+    Input(IDS.X_COL,       "value"),
+    Input(IDS.Y_COL,       "value"),
+    Input(IDS.PIE_COL,     "value"),
+    Input(IDS.TIME_COL,    "value"),
+    Input(IDS.YEAR_VALUES, "value"),
     prevent_initial_call=True
 )
 def render_figures(data_json, active_cols, filter_col, filter_val, x_col, y_col, pie_col, time_col, year_values):
