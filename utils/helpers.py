@@ -44,15 +44,24 @@ def typed_lists(df: pd.DataFrame, cols: List[str]) -> Tuple[List[str], List[str]
     return str_cols, num_cols
 
 
-# ---------- Time helpers ----------
+# ---------- Time helper ----------
+def extract_years(obj, time_col: str | None = None) -> pd.Series:
+    """
+    Return a Series of year integers derived from a time column.
+    - Flexible signature:
+      * extract_years(df, "col")  # DataFrame + column name
+      * extract_years(series)     # directly a Series
+    - Works with datetime64, integer-like, and string year columns.
+    """
+    if time_col is not None and isinstance(obj, pd.DataFrame):
+        s = obj[time_col]
+    else:
+        # assume Series
+        s = obj
 
-def extract_years(df: pd.DataFrame, time_col: str) -> pd.Series:
-    """
-    Return a Series of integer years from a time-like column:
-    - datetime64 -> .dt.year
-    - else -> numeric coercion to int (invalid -> NA)
-    """
-    s = df[time_col]
     if pd.api.types.is_datetime64_any_dtype(s):
-        return s.dropna().dt.year.astype("Int64")
-    return pd.to_numeric(s, errors="coerce").dropna().astype("Int64")
+        years = s.dt.year
+    else:
+        years = pd.to_numeric(s, errors="coerce").astype("Int64")
+
+    return years
