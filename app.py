@@ -2,10 +2,13 @@ import base64, io
 from io import StringIO
 import pandas as pd
 import plotly.express as px
-from dash import Dash, dcc, html, Input, Output, State
+from dash import Dash, html, Input, Output, State
 
-from preprocessing.analysis_pipeline import preprocess_dataframe
-from preprocessing.column_classifier import categorize_columns
+from layout import build_layout
+
+from services.preprocess import preprocess_dataframe
+from services.classify import categorize_columns
+
 
 # ---------- Settings for preselect & cap ----------
 MAX_PER_CAT = 4     # how many columns per category to preselect
@@ -22,64 +25,16 @@ CATEGORY_ORDER = [  # priority when collecting from categories
 # TODO: Add multiselection ticks or boxes for charts opened (don't show all charts by default). 
 # TODO: Add description or guidelines to categorized columns (describe what the list is)
 # TODO: Add description: what "Choose columns for analysis" is and what it does. 
+
 # TODO: Add descriptions to filters. 
 # TODO: When selecting columns for analysis, if user types a column name and it is already 'active', give feedback e.g. "already selected". 
 
-app = Dash(__name__)
+# Create app; enabling suppress_callback_exceptions helps 
+# if parts of the layout are loaded dynamically or replaced later.
+app = Dash(__name__, suppress_callback_exceptions=True)
 
 # ---------- APP LAYOUT ----------
-app.layout = html.Div([
-    html.Header(html.H1("Forestry Data Visualisation"), className="app-header"),
-    dcc.Upload(
-        id="upload",
-        children=html.Button(
-            "Upload File (.csv, .xls, .xlsx, .json/.geojson)",
-            className="upload-btn"
-        ),
-        multiple=False,
-        accept=".csv, .xls, .xlsx, .json, .geojson",
-        className="upload-as-button",
-        style={"display": "inline-block"}
-    ),
-
-    # Session stores: 1. processed dataframe as JSON, 2. meta = categorized columns, 3. user-kept columns (limited)
-    dcc.Store(id="data", storage_type="session"),
-    dcc.Store(id="meta", storage_type="session"),
-    dcc.Store(id="active_cols", storage_type="session"), 
-
-    # A) Category browser (read-only list)
-    dcc.Dropdown(id="category", placeholder="Choose category", className="category-dropdown"),
-    html.Div(id="columns-view", className="columns-list"),
-
-    # B) User picks columns to keep for all charts/filters
-    html.H2("Choose columns for analysis"),
-    dcc.Dropdown(id="keep_cols", multi=True, placeholder="Choose columns for analysis", className="column-picker"),
-
-    # C) Visualisation controls (vis filters + axes + time filter)
-    html.H2("Choose filters"),
-    html.Div([
-        # Generic filter (column -> value)
-        dcc.Dropdown(id="filter_col", placeholder="Filter column"),
-        dcc.Dropdown(id="filter_val", placeholder="Filter value"),
-
-        # Time filtering (column -> multi-year values)
-        dcc.Dropdown(id="time_col",   placeholder="Time column"),
-        dcc.Dropdown(id="year_values", multi=True, placeholder="Years (multi-select)"),
-
-        # Axes for bar + column for pie
-        dcc.Dropdown(id="x_col", placeholder="Bar X (categorical)"),
-        dcc.Dropdown(id="y_col", placeholder="Bar Y (numeric)"),
-        dcc.Dropdown(id="pie_col", placeholder="Pie column (categorical)"),
-    ], className="vis-controls"),
-
-    # D) Charts grid
-    html.H2("Visualisations"),
-    html.Div([
-        dcc.Graph(id="fig_map", className="chart"),
-        dcc.Graph(id="fig_bar", className="chart"),
-        dcc.Graph(id="fig_pie", className="chart"),
-    ], className="charts-grid")
-])
+app.layout = build_layout() 
 
 # ---------- Helpers ----------
 def _flatten_unique(meta: dict) -> list:
