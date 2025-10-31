@@ -3,9 +3,10 @@ import pandas as pd
 import plotly.express as px
 
 from dash import Dash, html, Input, Output, State
-from utils.ids import IDS
 from layout import build_layout
+from utils.ids import IDS
 from utils.helpers import json_to_df, flatten_unique, make_options, typed_lists, extract_years
+from callbacks.upload import register as register_upload_callbacks
 
 from services.preprocess import preprocess_dataframe
 from services.classify import categorize_columns
@@ -34,41 +35,12 @@ CATEGORY_ORDER = [  # priority when collecting from categories
 # if parts of the layout are loaded dynamically or replaced later.
 app = Dash(__name__, suppress_callback_exceptions=True)
 
-# ---------- APP LAYOUT ----------
+# App Layout 
 app.layout = build_layout() 
 
-# ---------- Upload + preprocessing ----------
-@app.callback(
-    Output(IDS.DATA, "data"),
-    Output(IDS.META, "data"),
-    Input(IDS.UPLOAD, "contents"),
-    State(IDS.UPLOAD, "filename"),
-    prevent_initial_call=True
-)
-def handle_upload(contents, filename):
-    """Read uploaded file, preprocess it, categorize columns and store JSON/meta."""
-    if not contents:
-        return None, None
-    try:
-        decoded = base64.b64decode(contents.split(",")[1])
-        if filename and filename.lower().endswith((".xls", ".xlsx")):
-            df = pd.read_excel(
-                io.BytesIO(decoded),
-                na_values=["", " ", "-", "NA", "N/A", "nan", "NaN"]
-            )
-        elif filename and filename.lower().endswith((".geojson", ".json")):
-            df = pd.read_json(io.BytesIO(decoded))
-        else:
-            df = pd.read_csv(io.BytesIO(decoded))
+# Upload + preprocessing 
+register_upload_callbacks(app)
 
-        # Preprocess and categorize the DataFrame
-        processed_df = preprocess_dataframe(df).copy()
-        meta = categorize_columns(processed_df)
-        return processed_df.to_json(orient="split", date_format="iso"), meta
-    except Exception as e:
-        print(f"Failed to read uploaded file: {e}")
-        return None, None
-    
 # ---------- Category menu + list ----------      
 
 # ---- A) Category list ----  
