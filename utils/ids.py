@@ -25,6 +25,9 @@ class IDS:
     # multi-select of selected years
     YEAR_VALUES = "year_values"
 
+    # Single source of truth for the “no filtering” token
+    ALL = "__ALL__"
+
     # Chart selectors
     X_COL   = "x_col"
     Y_COL   = "y_col"
