@@ -5,6 +5,7 @@ import plotly.express as px
 from dash import Dash, html, Input, Output, State
 
 from layout import build_layout
+from utils.helpers import json_to_df, flatten_unique, make_options, typed_lists, extract_years
 
 from services.preprocess import preprocess_dataframe
 from services.classify import categorize_columns
@@ -35,20 +36,6 @@ app = Dash(__name__, suppress_callback_exceptions=True)
 
 # ---------- APP LAYOUT ----------
 app.layout = build_layout() 
-
-# ---------- Helpers ----------
-def _flatten_unique(meta: dict) -> list:
-    """Return a flat list of unique column names from all category mappings."""
-    seen = set()
-    unique_columns = []
-
-    for category_columns in meta.values():
-        for column in category_columns:
-            if column not in seen:
-                unique_columns.append(column)
-                seen.add(column)
-    
-    return unique_columns
 
 # ---------- Upload + preprocessing ----------
 @app.callback(
@@ -138,11 +125,11 @@ def init_keep_cols(meta, data_json):
     """
     if not meta or not data_json:
         return [], []
-    df = pd.read_json(StringIO(data_json), orient="split")
+    df = json_to_df(data_json) 
 
     # Build all available column options
-    all_cols = _flatten_unique(meta)
-    options = [{"label": c, "value": c} for c in all_cols]
+    all_cols = flatten_unique(meta)
+    options = make_options(all_cols)
 
     # Initialize lists for tracking selections
     picked = []   # columns to preselect
@@ -214,18 +201,13 @@ def fill_selectors(active_cols, data_json):
     """
     if not active_cols or not data_json:
         return [], [], [], []
-
-    df = pd.read_json(StringIO(data_json), orient="split")
+    df = json_to_df(data_json)
 
     # Keep only valid active columns 
     cols = [c for c in active_cols if c in df.columns]
 
     # Split columns by type
-    str_cols = [c for c in cols if df[c].dtype == "string"]
-    num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(df[c])]
-
-    # Helper for dropdown formatting
-    make_options = lambda lst: [{"label": c, "value": c} for c in lst]
+    str_cols, num_cols = typed_lists(df, cols)
 
     # Return menu options
     return (
@@ -252,8 +234,7 @@ def fill_filter_values(selected_col, data_json, active_cols):
     """
     if not selected_col or not data_json or not active_cols:
         return [], None
-
-    df = pd.read_json(StringIO(data_json), orient="split")
+    df = json_to_df(data_json)
 
     # Ensure the column exists and is active 
     if selected_col not in active_cols or selected_col not in df:
@@ -278,7 +259,7 @@ def fill_filter_values(selected_col, data_json, active_cols):
     return options, ALL
 
 
-# ---------- Time column & year range ----------
+# ---------- Time column (pick a single time-like column) ----------
 @app.callback(
     Output("time_col", "options"),
     Output("time_col", "value"),
@@ -288,13 +269,11 @@ def fill_filter_values(selected_col, data_json, active_cols):
     prevent_initial_call=True
 )
 def fill_time_column_options(meta, active_cols, data_json):
-    """
-    Suggest time columns from 'Time' category, limited to active columns.
-    """
+    """Suggest time columns from 'Time' category, limited to active columns."""
     if not meta or not active_cols or not data_json:
         return [], None
 
-    df = pd.read_json(StringIO(data_json), orient="split")
+    df = json_to_df(data_json)
     
     # Pick candidates from Time category that exist in df and are active
     time_candidates = [c for c in meta.get("Time", []) if c in active_cols and c in df.columns]
@@ -311,11 +290,11 @@ def fill_time_column_options(meta, active_cols, data_json):
         return 3
     time_candidates.sort(key=rank)
 
-    opts = [{"label": c, "value": c} for c in time_candidates]
+    options = make_options(time_candidates)
     default = time_candidates[0] if time_candidates else None
-    return opts, default
+    return options, default
 
-
+# ---------- Year multi-select, driven by chosen time_col ----------
 @app.callback(
     Output("year_values", "options"),
     Output("year_values", "value"),
@@ -327,19 +306,21 @@ def fill_year_values(time_col, data_json):
     """Populate the multi-select with distinct years from the chosen time column."""
     if not time_col or not data_json:
         return [], []
-    df = pd.read_json(StringIO(data_json), orient="split")
+    
+    df = json_to_df(data_json)
     if time_col not in df.columns:
         return [], []
-
-    s = df[time_col]
-    # Normalize to year integers
-    years = s.dt.year.dropna() if pd.api.types.is_datetime64_any_dtype(s) else pd.to_numeric(s, errors="coerce").dropna().astype(int)
+    
+    # returns Int64 series of years
+    years = extract_years(df, time_col)  
     if years.empty:
         return [], []
-    uniq = sorted(years.unique().tolist())
+    
+    uniq = sorted(int(y) for y in years.dropna().unique().tolist())
+    # Integer values are fine; labels are strings for UI
     opts = [{"label": str(y), "value": int(y)} for y in uniq]
 
-    # Default: select all years (user can narrow down)
+    # Default: select all years
     return opts, uniq
 
 
@@ -373,11 +354,12 @@ def render_figures(data_json, active_cols, filter_col, filter_val, x_col, y_col,
     empty = px.scatter()
     if not data_json or not active_cols:
         return empty, empty, empty
+    
+    df = json_to_df(data_json)
 
-    # Load DataFrame and keep only active columns (+ lat/lon if available) 
-    df = pd.read_json(StringIO(data_json), orient="split")
+    # Keep only active columns (+ lat/lon if available) 
     must_keep = {"latitude", "longitude"} if {"latitude", "longitude"}.issubset(df.columns) else set()
-    keep_cols = [c for c in df.columns if c in (set(active_cols) | must_keep)]
+    keep_cols = [c for c in df.columns if c in set(active_cols).union(must_keep)]
     if not keep_cols:
         return empty, empty, empty
     df = df[keep_cols]
@@ -389,10 +371,9 @@ def render_figures(data_json, active_cols, filter_col, filter_val, x_col, y_col,
 
     # Optional year multi-select filter
     if time_col and time_col in df.columns and year_values:
-        s = df[time_col]
-        years = s.dt.year if pd.api.types.is_datetime64_any_dtype(s) else pd.to_numeric(s, errors="coerce").astype("Int64")
-        df = df[years.isin(set(year_values))]
-   
+        years = extract_years(df, time_col)
+        df = df.loc[years.isin(set(year_values)).fillna(False)]
+       
     # --- MAP: requires latitude/longitude ---
     fig_map = empty
     if {"latitude", "longitude"}.issubset(df.columns):
@@ -418,9 +399,9 @@ def render_figures(data_json, active_cols, filter_col, filter_val, x_col, y_col,
         fig_bar = px.bar(grouped, x=x_col, y=y_col)
     elif x_col in df.columns:
         # Counts by X
-        grouped = df[x_col].value_counts(dropna=False).reset_index()
-        grouped.columns = [x_col, "count"]
-        fig_bar = px.bar(grouped, x=x_col, y="count")
+        counts = df[x_col].value_counts(dropna=False).reset_index()
+        counts.columns = [x_col, "count"]
+        fig_bar = px.bar(counts, x=x_col, y="count")
     else:
         fig_bar = empty
 
