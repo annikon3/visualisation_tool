@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Iterable, List, Optional, Tuple, Dict
+from typing import Iterable, List, Optional
 import pandas as pd
 import plotly.express as px
 from dash import Dash, Input, Output
 
 from utils.ids import IDS
-from utils.helpers import json_to_df, extract_years, ALL_SENTINEL
-from plotly.colors import qualitative as q
+from utils.helpers import json_to_df, extract_years
 
 # ---------- Internal helpers ----------
 
