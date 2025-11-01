@@ -176,8 +176,8 @@ def register(app):
 
         # Keep only valid active columns 
         cols = [c for c in active_cols if c in df.columns]
-        str_cols = [c for c in cols if df[c].dtype == "string"]
-        num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(df[c])]
+        # str_cols = [c for c in cols if df[c].dtype == "string"]
+        # num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(df[c])]
 
         # Split columns by type
         str_cols, num_cols = typed_lists(df, cols)
