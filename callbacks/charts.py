@@ -1,15 +1,19 @@
 from __future__ import annotations
 
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple, Dict
 import pandas as pd
 import plotly.express as px
 from dash import Dash, Input, Output
 
 from utils.ids import IDS
-from utils.helpers import json_to_df, extract_years
-
+from utils.helpers import json_to_df, extract_years, ALL_SENTINEL
+from plotly.colors import qualitative as q
 
 # ---------- Internal helpers ----------
+
+# Fixed colors for map for the common 0/1 case.
+_BASE_MAP_COLORS = {"0": "#00CC00", "1": "#CC0000"}
+
 
 def _subset_to_active(df: pd.DataFrame, active_cols: Iterable[str]) -> pd.DataFrame:
     """
@@ -52,20 +56,60 @@ def _apply_year_filter(df: pd.DataFrame, time_col: Optional[str], years: Optiona
 
 
 # --- MAP: requires latitude/longitude ---
-def _build_map(df: pd.DataFrame, hover_col: Optional[str]):
-    """Render a scatter map if latitude/longitude exist; else return an empty figure."""
+def _build_map(df: pd.DataFrame, hover_col: Optional[str], color_col: Optional[str] = None):
+    """
+    Render a scatter map if latitude/longitude exist; else return an empty figure.
+    Colors by `color_col` when given; otherwise single color.
+        - numeric & values ⊆ {0,1}  -> fixed colors (0=green, 1=red)
+        - numeric & >2 unique       -> continuous Viridis scale
+        - non-numeric '0'/'1' only  -> fixed colors
+        - other non-numeric         -> default discrete palette
+    """
     if not {"latitude", "longitude"}.issubset(df.columns):
         return px.scatter()
 
     geo = df.dropna(subset=["latitude", "longitude"])
     if geo.empty:
         return px.scatter()
+    
+    # Determine color logic
+    color_arg = None
+    discrete_map = None
+    continuous_scale = None
+    legend_title = None
+
+    if color_col and color_col in geo.columns:
+        s = geo[color_col]
+        legend_title = color_col
+
+        if pd.api.types.is_numeric_dtype(s):
+            uniq = pd.unique(s.dropna())
+            # Case: strictly binary 0/1 -> force categorical by casting to string
+            if len(uniq) <= 2 and set(uniq).issubset({0, 1}):
+                tmp = f"__color_{color_col}"
+                # normalize to 0/1 -> "0"/"1"
+                geo[tmp] = pd.to_numeric(s, errors="coerce").round(0).astype("Int64").astype(str)
+                color_arg = tmp
+                discrete_map = _BASE_MAP_COLORS
+            else:
+                # Numeric multi-valued -> continuous Viridis
+                color_arg = color_col
+                continuous_scale = "Viridis"
+        else:
+            # Non-numeric; give fixed colors if only '0'/'1'
+            vals = set(s.dropna().astype(str).unique())
+            color_arg = color_col
+            if vals.issubset({"0", "1"}):
+                discrete_map = _BASE_MAP_COLORS
 
     fig = px.scatter_map(
         geo,
         lat="latitude",
         lon="longitude",
         hover_name=hover_col if (hover_col in geo.columns) else None,
+        color=color_arg,
+        color_discrete_map=discrete_map,
+        color_continuous_scale=continuous_scale,
         zoom=4,
         height=500,
     )
@@ -73,6 +117,8 @@ def _build_map(df: pd.DataFrame, hover_col: Optional[str]):
         mapbox_style="open-street-map",
         mapbox_accesstoken=None,
         margin=dict(l=0, r=0, t=0, b=0),
+        legend_title_text=legend_title,
+        coloraxis_showscale=bool(continuous_scale),
     )
 
 
@@ -149,7 +195,8 @@ def register_charts_callbacks(app: Dash, all_sentinel: str) -> None:
         df = _apply_year_filter(df, time_col, year_values)
 
         # 4) Build charts
-        fig_map = _build_map(df, hover_col=x_col)
+        map_color_col = filter_col if (filter_col in df.columns) else None
+        fig_map = _build_map(df, hover_col=x_col, color_col=map_color_col)
         fig_bar = _build_bar(df, x_col, y_col)
         fig_pie = _build_pie(df, pie_col)
 
