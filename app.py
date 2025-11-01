@@ -4,10 +4,8 @@ from layout import build_layout
 from callbacks.charts import register_charts_callbacks
 from callbacks.upload import register as register_upload_callbacks
 from callbacks.menus import register as register_menu_callbacks
+from utils.helpers import ALL_SENTINEL
 
-
-# Special value that means "no filtering" for value filters
-ALL_SENTINEL = "__ALL__"
 
 # TODO: Time filters as always visible multi-selects or checkboxes that changes choice for all charts at once. Add a "all" option. 
 # TODO: Different color dots for generic filter applied to map. 
