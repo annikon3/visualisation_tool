@@ -33,6 +33,13 @@ body {
 }
 .app-header h1 { margin: 0; font-size: 1.5rem; }
 
+.help-text {
+  color: #555;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  font-style: italic;
+}
+
 /* Upload */
 .upload {
   padding: 12px;

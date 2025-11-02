@@ -27,10 +27,20 @@ def build_layout():
 
         # A) Category browser (read-only list)
         dcc.Dropdown(id=IDS.CATEGORY, placeholder="Choose category", className="category-dropdown"),
+        html.P(
+            "Columns are automatically grouped based on their name or type (e.g. 'year' or numeric). "
+            "These categories help understand which fields can be used for specific charts.", 
+            className="help-text"
+            ),
         html.Div(id=IDS.COLUMNS_VIEW, className="columns-list"),
 
         # B) User picks columns to keep for all charts/filters
         html.H2("Choose columns for analysis"),
+        html.P(
+            "Select one or more columns from your dataset to include in visualisations. "
+            "Active columns will appear in filters and charts below.", 
+            className="help-text"
+            ),
         dcc.Dropdown(
             id=IDS.KEEP_COLS, 
             multi=True, 
@@ -40,10 +50,15 @@ def build_layout():
         
         # C) Visualisation controls (vis filters + axes + time filter)
         html.H2("Choose filters"),
+        html.P(
+                "Use the dropdowns below to filter data globally. "
+                "Filters update all charts simultaneously.", 
+                className="help-text"
+            ),
         html.Div([
             # Generic filter (column -> value)
-            dcc.Dropdown(id=IDS.FILTER_COL, placeholder="Filter column"),
-            dcc.Dropdown(id=IDS.FILTER_VAL, placeholder="Filter value"),
+            dcc.Dropdown(id=IDS.FILTER_COL, placeholder="Choose a column to filter by..."),
+            dcc.Dropdown(id=IDS.FILTER_VAL, placeholder="Choose a value to filter..."),
 
             # Time filtering (column -> multi-year values)
             dcc.Dropdown(id=IDS.TIME_COL,   placeholder="Time column"),
