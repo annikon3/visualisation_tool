@@ -158,6 +158,7 @@ def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
        - Else if x only:     show counts by x
        - Else:               empty figure
     Locks the x-axis to categorical order if x looks like year.
+    Adds value labels and a small N annotation for clarity.
     """
     if not x_col or x_col not in df.columns:
         return px.scatter()
@@ -175,23 +176,58 @@ def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
     else:
         df[x_col] = x_series.astype(str)
 
-    #  Mean(y) by x 
+    # Mean(y) by x, roud to 3 decimals
     if y_col in df.columns and pd.api.types.is_numeric_dtype(df[y_col]):
-        grouped = df.groupby(x_col, dropna=False, observed=True)[y_col].mean(numeric_only=True).reset_index()
-        fig = px.bar(grouped, x=x_col, y=y_col)
-        return _lock_year_axis(fig, grouped[x_col])
+        grouped = (
+            df.groupby(x_col, dropna=False, observed=True)[y_col]
+            .mean(numeric_only=True)
+            .round(3) 
+            .reset_index()
+        )
+        grouped["label"] = grouped[y_col].apply(lambda v: f"{v:.3f}")
+        fig = px.bar(grouped, x=x_col, y=y_col, text="label")
 
-    # Counts by x
-    counts = df[x_col].value_counts(dropna=False).reset_index()
-    counts.columns = [x_col, "count"]
-    fig = px.bar(counts, x=x_col, y="count")
-    return _lock_year_axis(fig, counts[x_col])
+        # show values on/above bars; avoid clipping
+        fig.update_traces(textposition="outside", cliponaxis=False)
+        fig = _lock_year_axis(fig, grouped[x_col])
+    else:
+        # Counts by x
+        counts = df[x_col].value_counts(dropna=False).reset_index()
+        counts.columns = [x_col, "count"]
+        # text shows the counts on bars
+        fig = px.bar(counts, x=x_col, y="count", text="count")
+        fig.update_traces(textposition="outside", cliponaxis=False)
+        fig = _lock_year_axis(fig, counts[x_col])
+
+    # Small total N annotation (top-right)
+    total_n = len(df)
+    fig.update_layout(
+        uniformtext_minsize=10,
+        annotations=[
+            dict(
+                text=f"N = {total_n}",
+                x=1, y=1.12, xref="paper", yref="paper",
+                xanchor="right", showarrow=False,
+                font=dict(size=12)
+            )
+        ] + (fig.layout.annotations or [])
+    )
+    return fig
 
 
 def build_pie(df: pd.DataFrame, pie_col: Optional[str]):
-    """Pie chart: distribution of a categorical column; else empty figure."""
+    """Pie chart: distribution for a categorical column with clear labels; else empty figure."""
     if pie_col in df.columns:
         pie_counts = df[pie_col].value_counts(dropna=False).reset_index()
         pie_counts.columns = [pie_col, "count"]
-        return px.pie(pie_counts, names=pie_col, values="count", hole=0.3)
+        fig = px.pie(pie_counts, names=pie_col, values="count", hole=0.3)
+
+        # Show label + percent + absolute value directly on slices
+        fig.update_traces(textposition="inside", textinfo="label+percent+value")
+
+        # Keep legend for color/key reference
+        fig.update_layout(showlegend=True)
+
+        return fig
+    
     return px.scatter()
