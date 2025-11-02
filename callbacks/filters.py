@@ -1,7 +1,7 @@
 from dash import Input, Output
 from utils.ids import IDS
 from utils.helpers import json_to_df
-from services.figures import subset_to_active, apply_value_filter, apply_year_filter
+from services.transforms import subset_to_active, apply_value_filter, apply_year_filter
 
 def register(app):
     @app.callback(

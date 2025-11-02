@@ -8,60 +8,16 @@ from utils.ids import IDS
 # Fixed discrete colors for binary 0/1 on map
 _BASE_MAP_COLORS = {"0": "#00CC00", "1": "#CC0000"}
 
-# ---------- Helpers (pure, no Dash) ----------
+# ---------- Internal helpers ----------
 
-def subset_to_active(df: pd.DataFrame, active_cols: Iterable[str], also_keep: Optional[List[str]] = None) -> pd.DataFrame:
-    """
-    Keep only active columns + latitude/longitude (if present) + optional also_keep.
-    Allow keeping extra columns (e.g., time_col) even if not in active list. 
-    Returns a copy to avoid chained-assignment warnings.
-    """
-    active = set(active_cols or [])
-    extra  = {c for c in (also_keep or []) if c in df.columns}
-    must   = {"latitude", "longitude"} if {"latitude", "longitude"}.issubset(df.columns) else set()
-    keep   = [c for c in df.columns if (c in active) or (c in must) or (c in extra)]
-    if not keep: 
-        return df.iloc[0:0].copy()  # empty frame if nothing to keep
-    return df[keep].copy()
+def _apply_title(fig, title: str, n: int):
+    """Apply a centered title and an N subtext; keep minimal visual noise."""
+    fig.update_layout(
+        title=dict(text=f"{title}<br><sup>N = {n}</sup>", x=0.5, xanchor="center"),
+        uniformtext_minsize=10,
+    )
+    return fig
 
-
-def apply_value_filter(df: pd.DataFrame, col: Optional[str], val: Optional[str], all_token: Optional[str] = None) -> pd.DataFrame:
-    """Apply equality filter unless value equals all_token."""
-    if not col or val is None or col not in df.columns:
-        return df
-    if all_token is not None and val == all_token:
-        return df
-    # Compare as string to handle numbers/booleans uniformly
-    return df[df[col].astype(str) == str(val)]
-
-
-def apply_year_filter(df: pd.DataFrame, time_col: Optional[str], years: Optional[List[int]]) -> pd.DataFrame:
-    """
-    Filter rows to the given list of years using helpers.extract_years().
-    Keeps only rows where the extracted year is in the provided list.
-    Skips filtering if the special ALL token is present.
-    """
-    if not time_col or time_col not in df.columns or not years:
-        return df
-    
-    # Skip if All is selected
-    if isinstance(years, (list, tuple, set)) and IDS.ALL_SENTINEL in years:
-        return df
-    
-    # Normalize single int -> list[int]
-    if not isinstance(years, list):
-        years = [years]
-
-    # Convert possible string values like "2009" -> 2009
-    years = [int(y) for y in years if str(y).isdigit()]
-
-    # Extract numeric years from the time column
-    year_series = extract_years(df[time_col]).astype("Int64")
-    mask = year_series.isin(years)
-    return df.loc[mask.fillna(False)]
-
-
-# ---------- Internal helper ----------
 def _lock_year_axis(fig, x_series: pd.Series):
     """
     If x looks like a year axis, force categorical ordering to avoid 2009.5 etc. (in bar chart)
@@ -79,12 +35,12 @@ def _lock_year_axis(fig, x_series: pd.Series):
 def build_map(df: pd.DataFrame, hover_col: Optional[str], color_col: Optional[str] = None):
     """
     Render a scatter map if latitude/longitude exist; else return an empty figure.
-    The point title (hover_name) becomes `hover_col` when present in the frame. 
     Colors by `color_col` when given; ; otherwise default coloring.
         - numeric & values in {0,1} -> fixed colors (0=green, 1=red)
         - numeric & >2 unique       -> continuous Viridis scale
         - non-numeric               -> fixed colors if only '0'/'1'
-    Keeps the user's viewport (zoom/pan) across filter updates via uirevision.
+    Keeps user's zoom/pan (uirevision), fixes legend order for binary data,
+    and applies descriptive title.
     """
     if not {"latitude", "longitude"}.issubset(df.columns):
         return px.scatter()
@@ -113,6 +69,8 @@ def build_map(df: pd.DataFrame, hover_col: Optional[str], color_col: Optional[st
                 geo[tmp] = pd.to_numeric(s, errors="coerce").round(0).astype("Int64").astype(str)
                 color_arg = tmp
                 discrete_map = _BASE_MAP_COLORS
+                # force stable order 0 -> 1
+                geo[tmp] = pd.Categorical(geo[tmp], categories=["0", "1"], ordered=True)
             else:
                 # Numeric multi-valued -> continuous Viridis
                 color_arg = color_col
@@ -138,16 +96,16 @@ def build_map(df: pd.DataFrame, hover_col: Optional[str], color_col: Optional[st
 
     fig.update_layout(
         map_style="open-street-map",
-        margin=dict(l=0, r=0, t=0, b=0),
+        margin=dict(l=0, r=0, t=60, b=0), 
         legend_title_text=legend_title,
         coloraxis_showscale=bool(continuous_scale),
         # Preserves the current viewport even when the figure updates
         uirevision="map-viewport",
-        title=dict(
-            text=f"Geographical distribution{f' by {color_col}' if color_col else ''}",
-            x=0.5, xanchor="center"
-        ),
+        legend_traceorder="normal",
     )
+
+    fig = _apply_title(fig, f"Geographical distribution{f' by {color_col}' if color_col else ''}", len(df))
+
     # Map subplot needs its own uirevision as well
     if getattr(fig.layout, "map", None) is not None:
         fig.layout.map.uirevision = "map-viewport"
@@ -161,8 +119,8 @@ def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
        - If x and numeric y: show mean(y) by x
        - Else if x only:     show counts by x
        - Else:               empty figure
-    Locks the x-axis to categorical order if x looks like year.
-    Includes value labels, N annotation and descriptive title.
+       - Locks the x-axis to categorical order if x looks like year.
+       - Includes value labels, N annotation and descriptive title.
     """
     if not x_col or x_col not in df.columns:
         return px.scatter()
@@ -206,37 +164,27 @@ def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
         fig = _lock_year_axis(fig, counts[x_col])
         description = f"Count of records by {x_col}"
 
-    # Small total N annotation (top-right)
-    total_n = len(df)
-    
-    fig.update_layout(
-        uniformtext_minsize=10,
-        title=dict(
-            # main title + subtext
-            text=f"{description}<br><sup>N = {total_n}</sup>", 
-            x=0.5, xanchor="center"
-        ),
-        # clear old N annotation
-        annotations=[]  
-    )
+    fig = _apply_title(fig, description, len(df))
+    fig.update_yaxes(rangemode="tozero")
+    fig.update_layout(margin=dict(l=0, r=0, t=60, b=0), bargap=0.2)
     return fig
 
 
 def build_pie(df: pd.DataFrame, pie_col: Optional[str]):
-    """Pie chart: distribution for a categorical column with labels and descriptive title; else empty figure."""
-    if pie_col in df.columns:
-        pie_counts = df[pie_col].value_counts(dropna=False).reset_index()
-        pie_counts.columns = [pie_col, "count"]
-        fig = px.pie(pie_counts, names=pie_col, values="count", hole=0.3)
+    """
+    Pie chart: category distribution with % and absolute values. 
+    Unified title and legend.
+    Else empty figure.
+    """
+    if pie_col not in df.columns:
+        return px.scatter()
+    
+    pie_counts = df[pie_col].value_counts(dropna=False).reset_index()
+    pie_counts.columns = [pie_col, "count"]
+    fig = px.pie(pie_counts, names=pie_col, values="count", hole=0.3)
 
-        # Show label + percent + absolute value directly on slices
-        fig.update_traces(textposition="inside", textinfo="label+percent+value")
-        fig.update_layout(
-            showlegend=True,
-            title=dict(
-                text=f"Distribution of {pie_col} (share of total)<br><sup>N = {len(df)}</sup>",
-                x=0.5, xanchor="center"
-            ),
-        )
-        return fig
-    return px.scatter()
+    # Show label + percent + absolute value directly on slices
+    fig.update_traces(textposition="inside", textinfo="label+percent+value")
+    fig.update_layout(showlegend=True)
+    fig = _apply_title(fig, f"Distribution of {pie_col} (share of total)", len(df))
+    return fig
