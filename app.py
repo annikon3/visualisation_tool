@@ -8,9 +8,7 @@ from utils.helpers import ALL_SENTINEL
 
 
 # TODO: Time filters as always visible multi-selects or checkboxes that changes choice for all charts at once. Add a "all" option. 
-# TODO: Different color dots for generic filter applied to map. 
 
-# TODO: Move Bar axes filters to sit with bar chart, pie column with pie chart. Keep year choices and common "Filter column" under "Choose filters" text. 
 # TODO: Add multiselection ticks or boxes for charts opened (don't show all charts by default). 
 
 # TODO: Add description or guidelines to categorized columns (describe what the list is)
@@ -19,7 +17,7 @@ from utils.helpers import ALL_SENTINEL
 
 # TODO: When selecting columns for analysis, if user types a column name and it is already 'active', give feedback e.g. "already selected". 
 
-# TODO: Lock x-axis to show exact values if present, like for years 2009-2011, dont show "2,009.5"
+# TODO: Lock bar chart x-axis to show exact values if present, like for years 2009-2011, dont show "2,009.5"
 
 
 # Create app; suppress_callback_exceptions=True allows callbacks to 
