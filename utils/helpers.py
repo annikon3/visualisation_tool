@@ -38,7 +38,7 @@ def typed_lists(df: pd.DataFrame, cols: List[str]) -> Tuple[List[str], List[str]
     Only columns present in df are considered.
     """
     present = [c for c in cols if c in df.columns]
-    str_cols = [c for c in present if df[c].dtype == "string"]
+    str_cols = [c for c in present if pd.api.types.is_string_dtype(df[c]) or df[c].dtype == object]
     num_cols = [c for c in present if pd.api.types.is_numeric_dtype(df[c])]
     return str_cols, num_cols
 

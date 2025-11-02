@@ -7,7 +7,7 @@ from utils.helpers import extract_years
 # Fixed discrete colors for binary 0/1 on map
 _BASE_MAP_COLORS = {"0": "#00CC00", "1": "#CC0000"}
 
-# ---------- Pure helpers (no Dash here) ----------
+# ---------- Helpers (pure, no Dash) ----------
 
 def subset_to_active(df: pd.DataFrame, active_cols: Iterable[str], also_keep: Optional[List[str]] = None) -> pd.DataFrame:
     """
@@ -49,6 +49,19 @@ def apply_year_filter(df: pd.DataFrame, time_col: Optional[str], years: Optional
     year_series = extract_years(df[time_col])
     mask = year_series.isin(years)
     return df.loc[mask.fillna(False)]
+
+
+# ---------- Internal helper ----------
+def _lock_year_axis(fig, x_series: pd.Series):
+    """
+    If x looks like a year axis, force categorical ordering to avoid 2009.5 etc. (in bar chart)
+    """
+    years = pd.to_numeric(x_series, errors="coerce").dropna().astype(int)
+    # Basic heuristic: all values are 4-digit-ish and within a sane year range
+    if not years.empty and years.between(1800, 2100).all():
+        cats = [str(y) for y in sorted(years.unique())]
+        fig.update_xaxes(type="category", categoryorder="array", categoryarray=cats)
+    return fig
 
 
 # ---------- Figure builders ----------
@@ -119,23 +132,43 @@ def build_map(df: pd.DataFrame, hover_col: Optional[str], color_col: Optional[st
         coloraxis_showscale=bool(continuous_scale),
     )
 
+
 def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
     """
     Bar chart:
        - If x and numeric y: show mean(y) by x
-       - Else if x only: show counts by x
-       - Else: empty figure
+       - Else if x only:     show counts by x
+       - Else:               empty figure
+    Locks the x-axis to categorical order if x looks like year.
     """
-    if x_col in df.columns and y_col in df.columns and pd.api.types.is_numeric_dtype(df[y_col]):
+    if not x_col or x_col not in df.columns:
+        return px.scatter()
+    
+    # Make x categorical; for year-like numbers, round -> int -> str 
+    df = df.copy()
+    x_series = df[x_col]
+    if pd.api.types.is_numeric_dtype(x_series):
+        # If values look like years, coerce to whole-year categories
+        x_num = pd.to_numeric(x_series, errors="coerce")
+        if x_num.notna().all() and x_num.between(1800, 2100).any():
+            df[x_col] = x_num.round(0).astype("Int64").astype(str)
+        else:
+            df[x_col] = x_series.astype(str)
+    else:
+        df[x_col] = x_series.astype(str)
+
+    #  Mean(y) by x 
+    if y_col in df.columns and pd.api.types.is_numeric_dtype(df[y_col]):
         grouped = df.groupby(x_col, dropna=False, observed=True)[y_col].mean(numeric_only=True).reset_index()
-        return px.bar(grouped, x=x_col, y=y_col)
-    
-    if x_col in df.columns:
-        counts = df[x_col].value_counts(dropna=False).reset_index()
-        counts.columns = [x_col, "count"]
-        return px.bar(counts, x=x_col, y="count")
-    
-    return px.scatter()
+        fig = px.bar(grouped, x=x_col, y=y_col)
+        return _lock_year_axis(fig, grouped[x_col])
+
+    # Counts by x
+    counts = df[x_col].value_counts(dropna=False).reset_index()
+    counts.columns = [x_col, "count"]
+    fig = px.bar(counts, x=x_col, y="count")
+    return _lock_year_axis(fig, counts[x_col])
+
 
 def build_pie(df: pd.DataFrame, pie_col: Optional[str]):
     """Pie chart: distribution of a categorical column; else empty figure."""

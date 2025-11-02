@@ -3,94 +3,67 @@ import plotly.express as px
 
 from utils.ids import IDS
 from utils.helpers import json_to_df
-from services.figures import *
+from services.figures import build_map, build_bar, build_pie
 
 # ---------- Public API ----------
 def register_charts_callbacks(app: Dash) -> None:
-    """Register lightweight callbacks; all distinct callbacks are in services.figures."""
+    """
+    Register lightweight callbacks; 
+    all distinct callbacks are in services.figures; 
+    all global filtering is done in Filters callback.
+    """
 
     # MAP: depends only on global filters
     @app.callback(
         Output(IDS.FIG_MAP, "figure"),
-        Input(IDS.DATA, "data"),
-        Input(IDS.ACTIVE_COLS, "data"),
-        Input(IDS.FILTER_COL, "value"),
-        Input(IDS.FILTER_VAL, "value"),
+        Input(IDS.FILTERED_DATA, "data"),
         Input(IDS.TIME_COL, "value"),
-        Input(IDS.YEAR_VALUES, "value"),
+        Input(IDS.FILTER_COL, "value"),
         prevent_initial_call=True,
     )
-    def _render_map(data_json, active_cols, filter_col, filter_val, time_col, year_values):
+    def _render_map(filtered_json, time_col, filter_col):
         empty = px.scatter()
-        if not data_json or not active_cols:
+        if not filtered_json:
             return empty
 
-        df = json_to_df(data_json)
-
-        # keep time_col for hover even if not in active list
-        df = subset_to_active(df, active_cols, also_keep=[time_col, filter_col])
+        df = json_to_df(filtered_json)
         if df.empty:
             return empty
 
-        # global value filter
-        df = apply_value_filter(df, filter_col, filter_val, all_token=IDS.ALL_SENTINEL)
-        # global year filter
-        df = apply_year_filter(df, time_col, year_values)
         map_color_col = filter_col if (filter_col in df.columns) else None
         return build_map(df, hover_col=time_col, color_col=map_color_col)
     
 
-    # BAR: its own axes + global filters 
+    # BAR: its own axis selectors + global filters 
     @app.callback(
         Output(IDS.FIG_BAR, "figure"),
-        Input(IDS.DATA, "data"),
-        Input(IDS.ACTIVE_COLS, "data"),
-        Input(IDS.FILTER_COL, "value"),
-        Input(IDS.FILTER_VAL, "value"),
-        Input(IDS.TIME_COL, "value"),
-        Input(IDS.YEAR_VALUES, "value"),
+        Input(IDS.FILTERED_DATA, "data"),
         Input(IDS.X_COL, "value"),
         Input(IDS.Y_COL, "value"),
         prevent_initial_call=True,
     )
-    def _render_bar(data_json, active_cols, filter_col, filter_val, time_col, year_values, x_col, y_col):
+    def _render_bar(filtered_json, x_col, y_col):
         empty = px.scatter()
-        if not data_json or not active_cols:
+        if not filtered_json:
             return empty
-
-        df = json_to_df(data_json)
-        df = subset_to_active(df, active_cols, also_keep=[time_col, x_col, y_col])
+        df = json_to_df(filtered_json)
         if df.empty:
             return empty
-
-        df = apply_value_filter(df, filter_col, filter_val, all_token=IDS.ALL_SENTINEL)
-        df = apply_year_filter(df, time_col, year_values)
         return build_bar(df, x_col, y_col)
-    
-    
-    # PIE: its own column + global filters
+        
+
+    # PIE: its own column selector + global filters
     @app.callback(
         Output(IDS.FIG_PIE, "figure"),
-        Input(IDS.DATA, "data"),
-        Input(IDS.ACTIVE_COLS, "data"),
-        Input(IDS.FILTER_COL, "value"),
-        Input(IDS.FILTER_VAL, "value"),
-        Input(IDS.TIME_COL, "value"),
-        Input(IDS.YEAR_VALUES, "value"),
+        Input(IDS.FILTERED_DATA, "data"), 
         Input(IDS.PIE_COL, "value"),
         prevent_initial_call=True,
     )
-    def _render_pie(data_json, active_cols, filter_col, filter_val, time_col, year_values, pie_col):
+    def _render_pie(filtered_json, pie_col):
         empty = px.scatter()
-        if not data_json or not active_cols:
+        if not filtered_json:
             return empty
-
-        df = json_to_df(data_json)
-        df = subset_to_active(df, active_cols, also_keep=[time_col, pie_col])
+        df = json_to_df(filtered_json)
         if df.empty:
-            return empty
-
-        df = apply_value_filter(df, filter_col, filter_val, all_token=IDS.ALL_SENTINEL)
-        df = apply_year_filter(df, time_col, year_values)
+            return empty        
         return build_pie(df, pie_col)
-

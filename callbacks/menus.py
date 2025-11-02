@@ -19,16 +19,14 @@ from utils.helpers import json_to_df, make_options, typed_lists, extract_years
 
 # --- Local config for menu behaviour ---
 MAX_PER_CAT = 4                 # how many columns to preselect per category
-MAX_KEEP    = 40                # total hard cap for selected (active) columns
-ALL         = IDS.ALL_SENTINEL  # sentinel value meaning "no filtering"
+MAX_KEEP    = 30                # total hard cap for selected (active) columns
 CATEGORY_ORDER = [              # priority when collecting from categories
     "Coordinates", "Time", "Boolean-like", "Region or area", "Species", "Site type", "Counts", "Lengths",
     "Numeric", "Text", "Other"
 ]
 
 
-# ---------- Internal helpers ----------
-
+# ---------- Internal helper ----------
 def _flatten_unique(meta: Dict[str, List[str]]) -> List[str]:
     """Flatten category -> columns mapping into a list of unique column names."""
     seen, out = set(), []
@@ -225,11 +223,11 @@ def register(app):
         vals.sort()
 
         # Add "All" option to allow showing all values 
-        opts = [{"label": "All", "value": ALL}] + [
+        opts = [{"label": "All", "value": IDS.ALL_SENTINEL}] + [
             {"label": v, "value": v} for v in vals
         ]
 
-        return opts, ALL
+        return opts, IDS.ALL_SENTINEL
 
 
     # --- Time column suggestions from "Time" category, limited to active cols ---
