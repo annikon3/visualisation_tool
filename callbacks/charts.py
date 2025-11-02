@@ -70,39 +70,54 @@ def register_charts_callbacks(app: Dash) -> None:
     )
     def _render_bar(filtered_json, x_col, y_col):
         empty = px.scatter()
-        if not filtered_json:
+        if not filtered_json or not x_col:
             return empty, "chart-card"
-        
+
         df = json_to_df(filtered_json)
         if df.empty:
             return empty, "chart-card"
-        
+
         fig = build_bar(df, x_col, y_col)
 
-        # Category count 
-        def _n_cats(fig, df, x_col):
+        # Read category count 
+        def _read_n_cats(fig, df, x_col) -> int:
             """
-            Prefer reading categories from the built figure.
-            Fallback to df[x_col] only if x_col is valid.
+            Prefer reading from figure.layout.meta['n_cats'] set by build_bar in figures.py.
+            Fallback to traces (len(x) or len(y)), and lastly to df[x_col] if valid.
             """
+            # 1) Preferred: figure meta
             try:
-                # If there are traces with x-values, use the first (bar charts usually have one)
+                meta = getattr(fig.layout, "meta", None)
+                if isinstance(meta, (dict,)):
+                    val = meta.get("n_cats", None)
+                    if isinstance(val, (int,)) and val >= 0:
+                        return val
+            except Exception:
+                pass
+
+            # 2) Fallback: try traces
+            try:
                 if fig and getattr(fig, "data", None):
                     for tr in fig.data:
-                        # try x first (vertical bars); if missing, try y (horizontal)
                         if getattr(tr, "x", None) is not None:
                             return len(tr.x)
                         if getattr(tr, "y", None) is not None:
                             return len(tr.y)
-                # Fallback to df only when x_col looks valid
+            except Exception:
+                pass
+
+            # 3) Fallback: df[x_col] if available 
+            try:
                 if x_col and (x_col in df.columns):
                     return df[x_col].astype(str).nunique()
             except Exception:
                 pass
-            return 0  # unknown -> treat as no categories (not wide card)
+
+            # unknown -> treat as no categories (not wide card)
+            return 0  
         # ----------------------------------------
 
-        n_cats = _n_cats(fig, df, x_col)
+        n_cats = _read_n_cats(fig, df, x_col)
         class_name = "chart-card chart-card--wide" if n_cats > _WIDE_THRESHOLD else "chart-card"
         return fig, class_name
 

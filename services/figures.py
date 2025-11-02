@@ -186,6 +186,12 @@ def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
     dynamic_h = min(_BAR_MAX_H, _BAR_BASE_H + _BAR_PER_CAT * n_cats)
     fig.update_layout(height=dynamic_h, autosize=True)
 
+    # Expose the computed category count to downstream callbacks as meta
+    # -> no need to recompute it. 
+    meta = dict(fig.layout.meta) if fig.layout.meta else {}
+    meta["n_cats"] = int(n_cats)
+    fig.update_layout(meta=meta)
+
     # Tilt x tick labels for readability
     if n_cats > _BAR_TILT_TH:
         fig.update_xaxes(tickangle=-60, automargin=True)
