@@ -47,7 +47,14 @@ def build_layout():
 
             # Time filtering (column -> multi-year values)
             dcc.Dropdown(id=IDS.TIME_COL,   placeholder="Time column"),
-            dcc.Dropdown(id=IDS.YEAR_VALUES, multi=True, placeholder="Years (multi-select)"),
+            dcc.Checklist(
+                id=IDS.YEAR_VALUES,
+                options=[],        # filled by menus callback
+                value=[],          # default set by menus callback
+                labelStyle={"display": "inline-block", "marginRight": "10px"},
+                inputClassName="year-chip", 
+                className="year-checklist"
+            ),
         ], className="vis-controls"),
 
         # D) Charts grid

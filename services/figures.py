@@ -3,6 +3,7 @@ from typing import Iterable, Optional, List
 import pandas as pd
 import plotly.express as px
 from utils.helpers import extract_years
+from utils.ids import IDS
 
 # Fixed discrete colors for binary 0/1 on map
 _BASE_MAP_COLORS = {"0": "#00CC00", "1": "#CC0000"}
@@ -38,15 +39,24 @@ def apply_year_filter(df: pd.DataFrame, time_col: Optional[str], years: Optional
     """
     Filter rows to the given list of years using helpers.extract_years().
     Keeps only rows where the extracted year is in the provided list.
+    Skips filtering if the special ALL token is present.
     """
     if not time_col or time_col not in df.columns or not years:
+        return df
+    
+    # Skip if All is selected
+    if isinstance(years, (list, tuple, set)) and IDS.ALL_SENTINEL in years:
         return df
     
     # Normalize single int -> list[int]
     if not isinstance(years, list):
         years = [years]
 
-    year_series = extract_years(df[time_col])
+    # Convert possible string values like "2009" -> 2009
+    years = [int(y) for y in years if str(y).isdigit()]
+
+    # Extract numeric years from the time column
+    year_series = extract_years(df[time_col]).astype("Int64")
     mask = year_series.isin(years)
     return df.loc[mask.fillna(False)]
 

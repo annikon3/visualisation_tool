@@ -293,8 +293,8 @@ def register(app):
             return [], []
         
         uniq = sorted(int(y) for y in years.dropna().unique().tolist())
-        # Integer values are fine; labels are strings for UI
-        opts = [{"label": str(y), "value": int(y)} for y in uniq]
+        opts = [{"label": "All years", "value": IDS.ALL_SENTINEL}] + [
+        {"label": str(y), "value": int(y)} for y in uniq]
 
         # Default: select all years
-        return opts, uniq
+        return opts, [IDS.ALL_SENTINEL]
