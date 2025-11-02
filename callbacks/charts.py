@@ -14,14 +14,16 @@ from utils.helpers import json_to_df, extract_years
 _BASE_MAP_COLORS = {"0": "#00CC00", "1": "#CC0000"}
 
 
-def _subset_to_active(df: pd.DataFrame, active_cols: Iterable[str]) -> pd.DataFrame:
+def _subset_to_active(df: pd.DataFrame, active_cols: Iterable[str], also_keep: Optional[List[str]] = None) -> pd.DataFrame:
     """
-    Keep only user-approved columns + lat/lon (if present).
+    Keep only user-approved columns + lat/lon (if present) + optional 'also_keep'.
+    Allow keeping extra columns (e.g., time_col) even if not in active list. 
     This reduces the size of frames flowing through callbacks.
     """
     active = set(active_cols or [])
+    extra  = {c for c in (also_keep or []) if c in df.columns}
     must_keep = {"latitude", "longitude"} if {"latitude", "longitude"}.issubset(df.columns) else set()
-    keep = [c for c in df.columns if (c in active) or (c in must_keep)]
+    keep = [c for c in df.columns if (c in active) or (c in must_keep) or (c in extra)]
     if not keep: 
         return df.iloc[0:0]  # empty frame if nothing to keep
     return df[keep]
@@ -58,11 +60,11 @@ def _apply_year_filter(df: pd.DataFrame, time_col: Optional[str], years: Optiona
 def _build_map(df: pd.DataFrame, hover_col: Optional[str], color_col: Optional[str] = None):
     """
     Render a scatter map if latitude/longitude exist; else return an empty figure.
-    Colors by `color_col` when given; otherwise single color.
-        - numeric & values ⊆ {0,1}  -> fixed colors (0=green, 1=red)
+    The point title (hover_name) becomes `hover_col` when present in the frame. 
+    Colors by `color_col` when given; ; otherwise default coloring.
+        - numeric & values in {0,1} -> fixed colors (0=green, 1=red)
         - numeric & >2 unique       -> continuous Viridis scale
-        - non-numeric '0'/'1' only  -> fixed colors
-        - other non-numeric         -> default discrete palette
+        - non-numeric               -> fixed colors if only '0'/'1'
     """
     if not {"latitude", "longitude"}.issubset(df.columns):
         return px.scatter()
@@ -183,7 +185,9 @@ def register_charts_callbacks(app: Dash, all_sentinel: str) -> None:
 
         # 1) Load and reduce to relevant columns
         df = json_to_df(data_json)
-        df = _subset_to_active(df, active_cols)
+
+        # Keep time_col even if it's not in active_cols so it can be shown on hover
+        df = _subset_to_active(df, active_cols, also_keep=[time_col])
         if df.empty:
             return (empty, empty, empty)
 
@@ -195,7 +199,7 @@ def register_charts_callbacks(app: Dash, all_sentinel: str) -> None:
 
         # 4) Build charts
         map_color_col = filter_col if (filter_col in df.columns) else None
-        fig_map = _build_map(df, hover_col=x_col, color_col=map_color_col)
+        fig_map = _build_map(df, hover_col=time_col, color_col=map_color_col)
         fig_bar = _build_bar(df, x_col, y_col)
         fig_pie = _build_pie(df, pie_col)
 
