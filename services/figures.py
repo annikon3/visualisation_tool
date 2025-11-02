@@ -84,6 +84,7 @@ def build_map(df: pd.DataFrame, hover_col: Optional[str], color_col: Optional[st
         - numeric & values in {0,1} -> fixed colors (0=green, 1=red)
         - numeric & >2 unique       -> continuous Viridis scale
         - non-numeric               -> fixed colors if only '0'/'1'
+    Keeps the user's viewport (zoom/pan) across filter updates via uirevision.
     """
     if not {"latitude", "longitude"}.issubset(df.columns):
         return px.scatter()
@@ -134,13 +135,20 @@ def build_map(df: pd.DataFrame, hover_col: Optional[str], color_col: Optional[st
         zoom=4,
         height=500,
     )
-    return fig.update_layout(
-        mapbox_style="open-street-map",
-        mapbox_accesstoken=None,
+
+    fig.update_layout(
+        map_style="open-street-map",
         margin=dict(l=0, r=0, t=0, b=0),
         legend_title_text=legend_title,
         coloraxis_showscale=bool(continuous_scale),
+        # Preserves the current viewport even when the figure updates
+        uirevision="map-viewport",
     )
+    # Map subplot needs its own uirevision as well
+    if getattr(fig.layout, "map", None) is not None:
+        fig.layout.map.uirevision = "map-viewport"
+
+    return fig 
 
 
 def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):

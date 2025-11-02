@@ -1,4 +1,4 @@
-from dash import Dash, Input, Output
+from dash import Dash, Input, Output, State, no_update
 import plotly.express as px
 
 from utils.ids import IDS
@@ -19,9 +19,10 @@ def register_charts_callbacks(app: Dash) -> None:
         Input(IDS.FILTERED_DATA, "data"),
         Input(IDS.TIME_COL, "value"),
         Input(IDS.FILTER_COL, "value"),
+        State(IDS.FIG_MAP, "figure"), 
         prevent_initial_call=True,
     )
-    def _render_map(filtered_json, time_col, filter_col):
+    def _render_map(filtered_json, time_col, filter_col, current_fig):
         empty = px.scatter()
         if not filtered_json:
             return empty
@@ -31,7 +32,27 @@ def register_charts_callbacks(app: Dash) -> None:
             return empty
 
         map_color_col = filter_col if (filter_col in df.columns) else None
-        return build_map(df, hover_col=time_col, color_col=map_color_col)
+        new_fig = build_map(df, hover_col=time_col, color_col=map_color_col)
+        
+        # Preserve user viewport (center, zoom etc.) when switching filters
+        try:
+            if current_fig and "layout" in current_fig and "map" in current_fig["layout"]:
+                old_map = current_fig["layout"]["map"]
+                new_fig.update_layout(
+                    map=dict(
+                        center=old_map.get("center", None),
+                        zoom=old_map.get("zoom", None),
+                        bearing=old_map.get("bearing", None),
+                        pitch=old_map.get("pitch", None),
+                        style=new_fig.layout.map.style,
+                        uirevision="map-viewport",
+                    ),
+                    uirevision="map-viewport",
+                )
+        except Exception:
+            pass
+
+        return new_fig
     
 
     # BAR: its own axis selectors + global filters 
