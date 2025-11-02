@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import Iterable, Optional, List
 import pandas as pd
 import plotly.express as px
-from utils.helpers import extract_years
 from utils.ids import IDS
 
 # Fixed discrete colors for binary 0/1 on map
