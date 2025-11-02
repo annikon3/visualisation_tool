@@ -109,11 +109,6 @@ body {
   overflow-x: hidden;
 }
 
-/* Make the map card span the full row */
-.charts-grid .map-card {
-  grid-column: 1 / -1; 
-}
-
 /* Each chart "card" (the grid-item wrapper) */
 .chart-card {
   background: var(--card);
@@ -124,17 +119,23 @@ body {
   min-width: 0;
 }
 
-/* Plot inside each card */
+/* Let the chart span the full grid width when needed */
+.chart-card--wide { grid-column: 1 / -1; }
+
+/* Plot container in each card */
 .chart-plot{
-  height: 420px; 
+  /* Let Plotly figure.layout.height control the height */
+  height: auto;
   width: 100%;
-  min-width: 0; 
+  min-width: 0;
+  min-height: 420px;
 }
 
+/* Allow Plotly to size the figure by its own layout.height */
 .chart-plot .dash-graph,
 .chart-plot .js-plotly-plot,
 .chart-plot .plot-container{
-  height: 100% !important;
+  height: auto !important;  
   width: 100% !important;
 }
 

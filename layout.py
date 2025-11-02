@@ -76,7 +76,10 @@ def build_layout():
         # per-chart controls together with each chart
         html.H2("Visualisations"),
         html.Div([
-            html.Div([dcc.Graph(id=IDS.FIG_MAP, className="chart-plot", config={"responsive": True}),], className="chart-card map-card"),
+            html.Div(
+                [dcc.Graph(id=IDS.FIG_MAP, className="chart-plot", config={"responsive": True})], 
+                className="chart-card chart-card--wide", 
+                id="map_card"),
             
             # --- Bar chart + its own local axis selectors ---
             html.Div([
@@ -85,7 +88,10 @@ def build_layout():
                     dcc.Dropdown(id=IDS.Y_COL, placeholder="Bar Y (numeric)"),
                 ], className="chart-controls"),
                 dcc.Graph(id=IDS.FIG_BAR, className="chart-plot", config={"responsive": True}),
-            ], className="chart-card"),
+                ],
+                className="chart-card",
+                id="bar_card"
+            ),
 
             # --- Pie chart + its own local column selector ---
             html.Div([
@@ -93,6 +99,6 @@ def build_layout():
                     dcc.Dropdown(id=IDS.PIE_COL, placeholder="Pie column (categorical)"),
                 ], className="chart-controls"),
                 dcc.Graph(id=IDS.FIG_PIE, className="chart-plot"),
-            ], className="chart-card"),
+            ], className="chart-card", id="pie_card"),
         ], className="charts-grid")
     ])

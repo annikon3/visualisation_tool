@@ -4,10 +4,18 @@ import pandas as pd
 import plotly.express as px
 from utils.ids import IDS
 
+
+# ---------- Internal helpers ----------
+
 # Fixed discrete colors for binary 0/1 on map
 _BASE_MAP_COLORS = {"0": "#00CC00", "1": "#CC0000"}
 
-# ---------- Internal helpers ----------
+# --- Bar sizing & readability constants ---
+_BAR_BASE_H   = 360   # base height for small charts
+_BAR_PER_CAT  = 22    # extra px per category
+_BAR_MAX_H    = 1600  # cap height to avoid absurdly tall figures
+_BAR_TILT_TH  = 12    # tilt x tick labels if categories exceed this
+_BAR_HIDE_TXT = 28    # hide value labels if categories exceed this
 
 def _apply_title(fig, title: str, n: int):
     """Apply a centered title and an N subtext; keep minimal visual noise."""
@@ -166,6 +174,26 @@ def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
     fig = _apply_title(fig, description, len(df))
     fig.update_yaxes(rangemode="tozero")
     fig.update_layout(margin=dict(l=0, r=0, t=60, b=0), bargap=0.2)
+
+    # ---- Adaptive sizing & readability ----
+    # Count number of categories actually plotted
+    if y_col in df.columns and pd.api.types.is_numeric_dtype(df[y_col]):
+        n_cats = len(grouped[x_col].unique())
+    else:
+        n_cats = len(counts[x_col].unique())
+
+    # Dynamic height: base + per-category growth, with a safe cap
+    dynamic_h = min(_BAR_MAX_H, _BAR_BASE_H + _BAR_PER_CAT * n_cats)
+    fig.update_layout(height=dynamic_h, autosize=True)
+
+    # Tilt x tick labels for readability
+    if n_cats > _BAR_TILT_TH:
+        fig.update_xaxes(tickangle=-60, automargin=True)
+
+    # Hide value labels when there are many bars (hover still shows values)
+    if n_cats > _BAR_HIDE_TXT:
+        fig.update_traces(textposition="none")
+
     return fig
 
 
