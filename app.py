@@ -7,7 +7,11 @@ from callbacks.menus import register as register_menu_callbacks
 from callbacks.filters import register as register_filter_callbacks
 
 
-# TODO: Time filters as always visible multi-selects or checkboxes that changes choice for all charts at once. Add a "all" option. 
+# TODO: Map should show the same area where user zoomed in, even when switching filters (allows better analysis).
+
+# TODO: Add new charts: line charts, stackable charts? 
+
+# TODO: Add legend to charts, e.g. show all counts, or in bar chart show values inside or on top of the bar. 
 
 # TODO: Add multiselection ticks or boxes for charts opened (don't show all charts by default). 
 
@@ -17,7 +21,7 @@ from callbacks.filters import register as register_filter_callbacks
 
 # TODO: When selecting columns for analysis, if user types a column name and it is already 'active', give feedback e.g. "already selected". 
 
-# TODO: Lock bar chart x-axis to show exact values if present, like for years 2009-2011, dont show "2,009.5"
+# TODO: Prevent charts from going on top of each other when switching between screen sizes (map gets covered for some reason)
 
 
 # Create app; suppress_callback_exceptions=True allows callbacks to 
