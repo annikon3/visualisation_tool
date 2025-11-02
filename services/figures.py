@@ -143,6 +143,10 @@ def build_map(df: pd.DataFrame, hover_col: Optional[str], color_col: Optional[st
         coloraxis_showscale=bool(continuous_scale),
         # Preserves the current viewport even when the figure updates
         uirevision="map-viewport",
+        title=dict(
+            text=f"Geographical distribution{f' by {color_col}' if color_col else ''}",
+            x=0.5, xanchor="center"
+        ),
     )
     # Map subplot needs its own uirevision as well
     if getattr(fig.layout, "map", None) is not None:
@@ -158,7 +162,7 @@ def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
        - Else if x only:     show counts by x
        - Else:               empty figure
     Locks the x-axis to categorical order if x looks like year.
-    Adds value labels and a small N annotation for clarity.
+    Includes value labels, N annotation and descriptive title.
     """
     if not x_col or x_col not in df.columns:
         return px.scatter()
@@ -190,6 +194,8 @@ def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
         # show values on/above bars; avoid clipping
         fig.update_traces(textposition="outside", cliponaxis=False)
         fig = _lock_year_axis(fig, grouped[x_col])
+        description = f"Mean of {y_col} by {x_col}"
+
     else:
         # Counts by x
         counts = df[x_col].value_counts(dropna=False).reset_index()
@@ -198,25 +204,26 @@ def build_bar(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
         fig = px.bar(counts, x=x_col, y="count", text="count")
         fig.update_traces(textposition="outside", cliponaxis=False)
         fig = _lock_year_axis(fig, counts[x_col])
+        description = f"Count of records by {x_col}"
 
     # Small total N annotation (top-right)
     total_n = len(df)
+    
     fig.update_layout(
         uniformtext_minsize=10,
-        annotations=[
-            dict(
-                text=f"N = {total_n}",
-                x=1, y=1.12, xref="paper", yref="paper",
-                xanchor="right", showarrow=False,
-                font=dict(size=12)
-            )
-        ] + (fig.layout.annotations or [])
+        title=dict(
+            # main title + subtext
+            text=f"{description}<br><sup>N = {total_n}</sup>", 
+            x=0.5, xanchor="center"
+        ),
+        # clear old N annotation
+        annotations=[]  
     )
     return fig
 
 
 def build_pie(df: pd.DataFrame, pie_col: Optional[str]):
-    """Pie chart: distribution for a categorical column with clear labels; else empty figure."""
+    """Pie chart: distribution for a categorical column with labels and descriptive title; else empty figure."""
     if pie_col in df.columns:
         pie_counts = df[pie_col].value_counts(dropna=False).reset_index()
         pie_counts.columns = [pie_col, "count"]
@@ -224,10 +231,12 @@ def build_pie(df: pd.DataFrame, pie_col: Optional[str]):
 
         # Show label + percent + absolute value directly on slices
         fig.update_traces(textposition="inside", textinfo="label+percent+value")
-
-        # Keep legend for color/key reference
-        fig.update_layout(showlegend=True)
-
+        fig.update_layout(
+            showlegend=True,
+            title=dict(
+                text=f"Distribution of {pie_col} (share of total)<br><sup>N = {len(df)}</sup>",
+                x=0.5, xanchor="center"
+            ),
+        )
         return fig
-    
     return px.scatter()

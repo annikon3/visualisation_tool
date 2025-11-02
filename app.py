@@ -15,8 +15,6 @@ from callbacks.filters import register as register_filter_callbacks
 # TODO: Add description: what "Choose columns for analysis" is and what it does. 
 # TODO: Add descriptions to filters. 
 
-# TODO: Add descriptios to charts (e.g. bar chart show Mean(y) by x when both axes selected. 
-
 # TODO: When selecting columns for analysis, if user types a column name and it is already 'active', give feedback e.g. "already selected". 
 
 # TODO: Prevent charts from going on top of each other when switching between screen sizes (map gets covered for some reason)
