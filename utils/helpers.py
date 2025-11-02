@@ -13,9 +13,6 @@ def json_to_df(data_json: str) -> pd.DataFrame:
 
 
 # ---------- Columns & options ----------
-# Sentinel meaning no filtering 
-ALL_SENTINEL = "__ALL__"
-
 def flatten_unique(meta: dict) -> list:
     """Return a flat list of unique categorized columns."""
     seen = set()

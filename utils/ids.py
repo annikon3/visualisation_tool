@@ -2,9 +2,10 @@
 
 class IDS:
     # Stores
-    DATA        = "data"
-    META        = "meta"
-    ACTIVE_COLS = "active_cols"
+    DATA          = "data"
+    META          = "meta"
+    ACTIVE_COLS   = "active_cols"
+    FILTERED_DATA = "filtered_data"
 
     # File upload
     UPLOAD = "upload"
@@ -26,7 +27,7 @@ class IDS:
     YEAR_VALUES = "year_values"
 
     # Single source of truth for the “no filtering” token
-    ALL = "__ALL__"
+    ALL_SENTINEL = "__ALL__"
 
     # Chart selectors
     X_COL   = "x_col"

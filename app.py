@@ -4,7 +4,7 @@ from layout import build_layout
 from callbacks.charts import register_charts_callbacks
 from callbacks.upload import register as register_upload_callbacks
 from callbacks.menus import register as register_menu_callbacks
-from utils.helpers import ALL_SENTINEL
+from utils.ids import IDS
 
 
 # TODO: Time filters as always visible multi-selects or checkboxes that changes choice for all charts at once. Add a "all" option. 
@@ -38,7 +38,7 @@ register_upload_callbacks(app)
 register_menu_callbacks(app)
 
 # Visualisations rendering 
-register_charts_callbacks(app, ALL_SENTINEL) 
+register_charts_callbacks(app) 
 
 # RUN APP
 if __name__ == "__main__":

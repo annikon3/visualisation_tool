@@ -136,9 +136,15 @@ def _find_lat_lon(df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
     Find lat/lon columns by simple name lists. Requires BOTH to exist to be usable.
     Normalize all column names to lowercase for comparison. 
     """
-    lower_cols = [str(c).lower() for c in df.columns]
-    lat = next((c for c in df.columns if lower_cols in LAT_NAMES), None)
-    lon = next((c for c in df.columns if lower_cols in LON_NAMES), None)
+    def find_one(cnames: List[str]) -> Optional[str]:
+        names_lower = {n.lower() for n in cnames}
+        for c in df.columns:
+            if str(c).lower() in names_lower:
+                return c
+        return None
+
+    lat = find_one(LAT_NAMES)
+    lon = find_one(LON_NAMES)
     return lat, lon
 
 

@@ -23,6 +23,7 @@ def build_layout():
         dcc.Store(id=IDS.DATA, storage_type="session"),
         dcc.Store(id=IDS.META, storage_type="session"),
         dcc.Store(id=IDS.ACTIVE_COLS, storage_type="session"),
+        dcc.Store(id=IDS.FILTERED_DATA, storage_type="session"),
 
         # A) Category browser (read-only list)
         dcc.Dropdown(id=IDS.CATEGORY, placeholder="Choose category", className="category-dropdown"),

@@ -18,11 +18,11 @@ from utils.helpers import json_to_df, make_options, typed_lists, extract_years
 
 
 # --- Local config for menu behaviour ---
-MAX_PER_CAT = 4          # how many columns to preselect per category
-MAX_KEEP    = 40         # total hard cap for selected (active) columns
-ALL         = "__ALL__"  # sentinel value meaning "no filtering"
-CATEGORY_ORDER = [       # priority when collecting from categories
-    "Coordinates", "Time", "Boolean", "Region or area", "Species", "Site type", "Counts", "Lengths",
+MAX_PER_CAT = 4                 # how many columns to preselect per category
+MAX_KEEP    = 40                # total hard cap for selected (active) columns
+ALL         = IDS.ALL_SENTINEL  # sentinel value meaning "no filtering"
+CATEGORY_ORDER = [              # priority when collecting from categories
+    "Coordinates", "Time", "Boolean-like", "Region or area", "Species", "Site type", "Counts", "Lengths",
     "Numeric", "Text", "Other"
 ]
 
