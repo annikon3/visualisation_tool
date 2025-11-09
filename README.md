@@ -24,20 +24,47 @@ While initially created for forestry datasets, the tool can visualise **any stru
 
 ---
 
+## Installation
+
+### 1. Clone and enter the project
+```
+git clone https://github.com/yourusername/visualisation_tool.git
+cd visualisation_tool
+```
+### 2. Create and activate a virtual environment
+```
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+### 3. Install dependencies
+```
+pip install -r requirements.txt
+```
+
+### 4. Running the Application
+```
+python app.py
+```
+### 5. Open browser at
+```
+http://127.0.0.1:8050/
+```
+
 ## Usage
 
-1. Click Upload File and select a .csv, .xlsx, .json, or .geojson file.
+1. Click Upload File or drag & drop to select a .csv, .xlsx, .json, or .geojson file.
 2. The tool automatically detects column types (e.g. coordinates, time).
 3. Choose which columns to include, apply filters, and explore data via interactive charts.
 4. Use the Map view for spatial datasets, or the Line, Scatter, and Histogram views for numeric analysis.
 
+---
 
 ## Technical Notes
 
 - Uses Plotly Express and Dash Core Components for all charts and controls.
 - Data is stored client-side with dcc.Store for fast updates between filters and plots.
 - Designed for modularity — each callback file handles a single concern.
-
 
 ## License
 Released under the MIT License.
