@@ -7,7 +7,11 @@ from callbacks.menus import register as register_menu_callbacks
 from callbacks.filters import register as register_filter_callbacks
 
 
-# TODO: Add new charts: scatter plot? 
+# TODO: Allow line chart to use other than time column
+
+# TODO: Make charts wide when small screen
+
+# TODO: Consider: if recognizing a time column fails, allow to add one manually? Or do not require it? 
 
 # TODO: Should charts show more info on hover? Which columns should info be limited to? 
 
