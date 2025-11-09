@@ -6,8 +6,6 @@ from callbacks.upload import register as register_upload_callbacks
 from callbacks.menus import register as register_menu_callbacks
 from callbacks.filters import register as register_filter_callbacks
 
-# TODO: Test with new datasets. 
-# TODO: When selecting columns for analysis, if user types a column name and it is already 'active', give feedback e.g. "already selected". 
 
 # Create app; suppress_callback_exceptions=True allows callbacks to 
 # reference layout parts that may be loaded or replaced dynamically.
