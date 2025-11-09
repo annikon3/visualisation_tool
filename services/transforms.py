@@ -4,7 +4,7 @@ import pandas as pd
 from utils.helpers import extract_years
 from utils.ids import IDS
 
-# ---------- Helpers to visualisation filtering (pure, no Dash) ----------
+# ---------- Helpers to visualisation filtering ----------
 
 def subset_to_active(df: pd.DataFrame, active_cols: Iterable[str], also_keep: Optional[List[str]] = None) -> pd.DataFrame:
     """Keep only active + lat/lon + optional also_keep; return a copy."""
