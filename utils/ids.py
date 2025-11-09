@@ -29,6 +29,9 @@ class IDS:
     # Single source of truth for the “no filtering” token
     ALL_SENTINEL = "__ALL__"
 
+    # Global chart visibility checklist
+    SHOW_CHARTS = "show_charts"  
+
     # Chart selectors
     X_COL      = "x_col"
     Y_COL      = "y_col"

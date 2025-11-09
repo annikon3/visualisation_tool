@@ -72,14 +72,34 @@ def build_layout():
             ),
         ], className="vis-controls"),
 
-        # D) Charts grid
+        # D) Which charts to show (global multi-select)
+        html.P("Choose which charts are visible. You can change this anytime.", className="help-text"),
+        dcc.Checklist(
+            id=IDS.SHOW_CHARTS,
+            options=[
+                {"label": "Map", "value": "map"},
+                {"label": "Bar", "value": "bar"},
+                {"label": "Pie", "value": "pie"},
+                {"label": "Histogram", "value": "hist"}, 
+                {"label": "Box", "value": "box"}, 
+                {"label": "Line", "value": "line"},
+            ],
+            # default to map and bar
+            value=["map", "bar"],
+            labelStyle={"display": "inline-block", "marginRight": "12px"},
+            className="chart-visibility"
+        ),
+
+        # E) Charts grid
         # per-chart controls together with each chart
         html.H2("Visualisations"),
         html.Div([
-            html.H3("Map Chart"), 
-            html.Div(
-                [dcc.Graph(id=IDS.FIG_MAP, className="chart-plot", config={"responsive": True})], 
-                className="chart-card chart-card--wide", id="map_card"),
+            html.Div([
+                html.H3("Map Chart"), 
+                dcc.Graph(id=IDS.FIG_MAP, className="chart-plot", config={"responsive": True}),
+                ], 
+                className="chart-card chart-card--wide", id="map_card"
+            ),
             
             # --- Bar chart ---
             html.Div([

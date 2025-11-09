@@ -100,6 +100,9 @@ body {
 }
 .vis-controls .Select { margin-bottom: 0; }
 
+/* Hide any chart card when the user opts it out */
+.hidden { display: none !important; }
+
 /* Charts layout */
 .charts-grid {
   display: grid;

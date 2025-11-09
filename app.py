@@ -7,11 +7,11 @@ from callbacks.menus import register as register_menu_callbacks
 from callbacks.filters import register as register_filter_callbacks
 
 
-# TODO: Add new charts: line charts, stackable charts? 
+# TODO: Add new charts: scatter plot? 
+
+# TODO: Should charts show more info on hover? Which columns should info be limited to? 
 
 # TODO: Test with new datasets. 
-
-# TODO: Add multiselection ticks or boxes for charts opened (don't show all charts by default). 
 
 # TODO: When selecting columns for analysis, if user types a column name and it is already 'active', give feedback e.g. "already selected". 
 

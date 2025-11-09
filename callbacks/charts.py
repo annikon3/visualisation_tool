@@ -5,9 +5,15 @@ from utils.ids import IDS
 from utils.helpers import json_to_df
 from services.figures import build_map, build_bar, build_pie, build_hist, build_box, build_line
 
-# ---------- Helper ----------
+# ---------- Helpers ----------
 # Threshold: Over 10 columns on x-axis -> use wide card for chart
 _WIDE_THRESHOLD = 10
+
+# Toggle base class with "hidden" -> hide or show charts
+def _with_visibility(base_class: str, show: bool) -> str:
+    """Return base class + ' hidden' when show=False; keep base otherwise."""
+    return f"{base_class} hidden" if not show else base_class
+
 
 # ---------- Public API ----------
 def register_charts_callbacks(app: Dash) -> None:
@@ -20,20 +26,26 @@ def register_charts_callbacks(app: Dash) -> None:
     # MAP: depends only on global filters
     @app.callback(
         Output(IDS.FIG_MAP, "figure"),
+        Output("map_card", "className"),
         Input(IDS.FILTERED_DATA, "data"),
         Input(IDS.TIME_COL, "value"),
         Input(IDS.FILTER_COL, "value"),
+        Input(IDS.SHOW_CHARTS, "value"),
         State(IDS.FIG_MAP, "figure"), 
         prevent_initial_call=True,
     )
-    def _render_map(filtered_json, time_col, filter_col, current_fig):
+    def _render_map(filtered_json, time_col, filter_col, visible, current_fig):
         empty = px.scatter()
+
+        # Decide visibility first
+        show = isinstance(visible, (list, tuple, set)) and ("map" in visible)
+        base_class = "chart-card chart-card--wide"
         if not filtered_json:
-            return empty
+            return empty, _with_visibility(base_class, show)
 
         df = json_to_df(filtered_json)
         if df.empty:
-            return empty
+            return empty, _with_visibility(base_class, show)
 
         map_color_col = filter_col if (filter_col in df.columns) else None
         new_fig = build_map(df, hover_col=time_col, color_col=map_color_col)
@@ -56,7 +68,7 @@ def register_charts_callbacks(app: Dash) -> None:
         except Exception:
             pass
 
-        return new_fig
+        return new_fig, _with_visibility(base_class, show)
     
 
     # BAR: its own axis selectors + global filters 
@@ -66,16 +78,19 @@ def register_charts_callbacks(app: Dash) -> None:
         Input(IDS.FILTERED_DATA, "data"),
         Input(IDS.X_COL, "value"),
         Input(IDS.Y_COL, "value"),
+        Input(IDS.SHOW_CHARTS, "value"),
         prevent_initial_call=True,
     )
-    def _render_bar(filtered_json, x_col, y_col):
-        empty = px.scatter()
+    def _render_bar(filtered_json, x_col, y_col, visible):
+        empty = px.scatter()      
+        show = isinstance(visible, (list, tuple, set)) and ("bar" in visible)
+        # When hidden, still compute figure cautiously (keeps previous sizing meta available),
         if not filtered_json or not x_col:
-            return empty, "chart-card"
+            return empty, _with_visibility("chart-card", show)
 
         df = json_to_df(filtered_json)
         if df.empty:
-            return empty, "chart-card"
+            return empty, _with_visibility("chart-card", show)
 
         fig = build_bar(df, x_col, y_col)
 
@@ -118,74 +133,118 @@ def register_charts_callbacks(app: Dash) -> None:
         # ----------------------------------------
 
         n_cats = _read_n_cats(fig, df, x_col)
-        class_name = "chart-card chart-card--wide" if n_cats > _WIDE_THRESHOLD else "chart-card"
-        return fig, class_name
+        base_class = "chart-card chart-card--wide" if n_cats > _WIDE_THRESHOLD else "chart-card"
+        return fig, _with_visibility(base_class, show)
 
 
     # PIE: its own column selector + global filters
     @app.callback(
         Output(IDS.FIG_PIE, "figure"),
-        Input(IDS.FILTERED_DATA, "data"), 
+        Output("pie_card", "className"),
+        Input(IDS.FILTERED_DATA, "data"),
         Input(IDS.PIE_COL, "value"),
+        Input(IDS.SHOW_CHARTS, "value"),
         prevent_initial_call=True,
     )
-    def _render_pie(filtered_json, pie_col):
+    def _render_pie(filtered_json, pie_col, visible):
         empty = px.scatter()
+        show = isinstance(visible, (list, tuple, set)) and ("pie" in visible)
+        base_class = "chart-card"
+
         if not filtered_json:
-            return empty
+            return empty, _with_visibility(base_class, show)
+        
         df = json_to_df(filtered_json)
         if df.empty:
-            return empty        
-        return build_pie(df, pie_col)
+            return empty, _with_visibility(base_class, show)
+        
+        fig = build_pie(df, pie_col)
+        return fig, _with_visibility(base_class, show)
     
     
     # HISTOGRAM: its own column selector + global filters
     @app.callback(
         Output(IDS.FIG_HIST, "figure"),
+        Output("hist_card", "className"),
         Input(IDS.FILTERED_DATA, "data"),
         Input(IDS.HIST_COL, "value"),
+        Input(IDS.SHOW_CHARTS, "value"),
         prevent_initial_call=True,
     )
-    def _render_hist(filtered_json, col):
+    def _render_hist(filtered_json, col, visible):
         empty = px.scatter()
+        show = isinstance(visible, (list, tuple, set)) and ("hist" in visible)
+        base_class = "chart-card"
+
+        # Hard skip: no computation when hidden (small optimization) 
+        if not show:
+            return empty, _with_visibility(base_class, False)
+
         if not filtered_json:
-            return empty
+            return empty, _with_visibility(base_class, True)
+        
         df = json_to_df(filtered_json)
         if df.empty:
-            return empty
-        return build_hist(df, col)
+            return empty, _with_visibility(base_class, True)
+
+        fig = build_hist(df, col)
+        return fig, _with_visibility(base_class, True)
 
 
     # BOX: its own column selector + global filters
     @app.callback(
         Output(IDS.FIG_BOX, "figure"),
+        Output("box_card", "className"),
         Input(IDS.FILTERED_DATA, "data"),
         Input(IDS.BOX_X, "value"),
         Input(IDS.BOX_Y, "value"),
+        Input(IDS.SHOW_CHARTS, "value"),
         prevent_initial_call=True,
     )
-    def _render_box(filtered_json, x_col, y_col):
+    def _render_box(filtered_json, x_col, y_col, visible):
         empty = px.scatter()
-        if not filtered_json:
-            return empty
+        show = isinstance(visible, (list, tuple, set)) and ("box" in visible)
+        base_class = "chart-card"
+
+        if not show:
+            return empty, _with_visibility(base_class, False)
+
+        if not filtered_json or not x_col or not y_col:
+            return empty, _with_visibility(base_class, True)
+
         df = json_to_df(filtered_json)
         if df.empty:
-            return empty
-        return build_box(df, x_col, y_col)
+            return empty, _with_visibility(base_class, True)
+
+        fig = build_box(df, x_col, y_col)
+        return fig, _with_visibility(base_class, True)
+
     
     # LINE: its own column selector + global filters
     @app.callback(
         Output(IDS.FIG_LINE, "figure"),
+        Output("line_card", "className"),
         Input(IDS.FILTERED_DATA, "data"),
         Input(IDS.LINE_TIME, "value"),
         Input(IDS.LINE_Y, "value"),
+        Input(IDS.SHOW_CHARTS, "value"),
         prevent_initial_call=True,
     )
-    def _render_line(filtered_json, t_col, y_col):
+    def _render_line(filtered_json, t_col, y_col, visible):
         empty = px.scatter()
-        if not filtered_json:
-            return empty
+        show = isinstance(visible, (list, tuple, set)) and ("line" in visible)
+        base_class = "chart-card"
+
+        if not show:
+            return empty, _with_visibility(base_class, False)
+
+        if not filtered_json or not t_col or not y_col:
+            return empty, _with_visibility(base_class, True)
+
         df = json_to_df(filtered_json)
         if df.empty:
-            return empty
-        return build_line(df, t_col, y_col)
+            return empty, _with_visibility(base_class, True)
+
+        fig = build_line(df, t_col, y_col)
+        return fig, _with_visibility(base_class, True)
+    
