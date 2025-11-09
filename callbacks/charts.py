@@ -3,7 +3,7 @@ import plotly.express as px
 
 from utils.ids import IDS
 from utils.helpers import json_to_df
-from services.figures import build_map, build_bar, build_pie
+from services.figures import build_map, build_bar, build_pie, build_hist, build_box, build_line
 
 # ---------- Helper ----------
 # Threshold: Over 10 columns on x-axis -> use wide card for chart
@@ -137,3 +137,55 @@ def register_charts_callbacks(app: Dash) -> None:
         if df.empty:
             return empty        
         return build_pie(df, pie_col)
+    
+    
+    # HISTOGRAM: its own column selector + global filters
+    @app.callback(
+        Output(IDS.FIG_HIST, "figure"),
+        Input(IDS.FILTERED_DATA, "data"),
+        Input(IDS.HIST_COL, "value"),
+        prevent_initial_call=True,
+    )
+    def _render_hist(filtered_json, col):
+        empty = px.scatter()
+        if not filtered_json:
+            return empty
+        df = json_to_df(filtered_json)
+        if df.empty:
+            return empty
+        return build_hist(df, col)
+
+
+    # BOX: its own column selector + global filters
+    @app.callback(
+        Output(IDS.FIG_BOX, "figure"),
+        Input(IDS.FILTERED_DATA, "data"),
+        Input(IDS.BOX_X, "value"),
+        Input(IDS.BOX_Y, "value"),
+        prevent_initial_call=True,
+    )
+    def _render_box(filtered_json, x_col, y_col):
+        empty = px.scatter()
+        if not filtered_json:
+            return empty
+        df = json_to_df(filtered_json)
+        if df.empty:
+            return empty
+        return build_box(df, x_col, y_col)
+    
+    # LINE: its own column selector + global filters
+    @app.callback(
+        Output(IDS.FIG_LINE, "figure"),
+        Input(IDS.FILTERED_DATA, "data"),
+        Input(IDS.LINE_TIME, "value"),
+        Input(IDS.LINE_Y, "value"),
+        prevent_initial_call=True,
+    )
+    def _render_line(filtered_json, t_col, y_col):
+        empty = px.scatter()
+        if not filtered_json:
+            return empty
+        df = json_to_df(filtered_json)
+        if df.empty:
+            return empty
+        return build_line(df, t_col, y_col)

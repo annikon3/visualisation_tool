@@ -76,29 +76,59 @@ def build_layout():
         # per-chart controls together with each chart
         html.H2("Visualisations"),
         html.Div([
+            html.H3("Map Chart"), 
             html.Div(
                 [dcc.Graph(id=IDS.FIG_MAP, className="chart-plot", config={"responsive": True})], 
-                className="chart-card chart-card--wide", 
-                id="map_card"),
+                className="chart-card chart-card--wide", id="map_card"),
             
-            # --- Bar chart + its own local axis selectors ---
+            # --- Bar chart ---
             html.Div([
+                html.H3("Bar Chart"), 
                 html.Div([
                     dcc.Dropdown(id=IDS.X_COL, placeholder="Bar X (categorical)"),
                     dcc.Dropdown(id=IDS.Y_COL, placeholder="Bar Y (numeric)"),
                 ], className="chart-controls"),
                 dcc.Graph(id=IDS.FIG_BAR, className="chart-plot", config={"responsive": True}),
                 ],
-                className="chart-card",
-                id="bar_card"
+                className="chart-card", id="bar_card"
             ),
 
-            # --- Pie chart + its own local column selector ---
+            # --- Pie chart ---
             html.Div([
+                html.H3("Pie Chart"), 
                 html.Div([
                     dcc.Dropdown(id=IDS.PIE_COL, placeholder="Pie column (categorical)"),
                 ], className="chart-controls"),
                 dcc.Graph(id=IDS.FIG_PIE, className="chart-plot"),
             ], className="chart-card", id="pie_card"),
+
+            # --- Histogram ---
+            html.Div([
+                html.H3("Histogram"), 
+                html.Div([
+                    dcc.Dropdown(id=IDS.HIST_COL, placeholder="Histogram (numeric)"),
+                ], className="chart-controls"),
+                dcc.Graph(id=IDS.FIG_HIST, className="chart-plot"),
+            ], className="chart-card", id="hist_card"),
+
+            # --- Box chart ---
+            html.Div([
+                html.H3("Box Chart"), 
+                html.Div([
+                    dcc.Dropdown(id=IDS.BOX_X, placeholder="Box: X (categorical)"),
+                    dcc.Dropdown(id=IDS.BOX_Y, placeholder="Box: Y (numeric)"),
+                ], className="chart-controls"),
+                dcc.Graph(id=IDS.FIG_BOX, className="chart-plot"),
+            ], className="chart-card", id="box_card"),
+
+            # --- Line chart ---
+            html.Div([
+                html.H3("Line Chart"), 
+                html.Div([
+                    dcc.Dropdown(id=IDS.LINE_TIME, placeholder="Line: time column"),
+                    dcc.Dropdown(id=IDS.LINE_Y,    placeholder="Line: Y (numeric)"),
+                ], className="chart-controls"),
+                dcc.Graph(id=IDS.FIG_LINE, className="chart-plot"),
+            ], className="chart-card", id="line_card"),
         ], className="charts-grid")
     ])

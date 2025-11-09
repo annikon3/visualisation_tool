@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Iterable, Optional, List
 import pandas as pd
+import numpy as np
 import plotly.express as px
 from utils.ids import IDS
 
@@ -221,3 +222,66 @@ def build_pie(df: pd.DataFrame, pie_col: Optional[str]):
     fig.update_layout(showlegend=True)
     fig = _apply_title(fig, f"Distribution of {pie_col} (share of total)", len(df))
     return fig
+
+def build_hist(df: pd.DataFrame, col: Optional[str]):
+    """Histogram of a numeric column with robust bin selection."""
+    if not col or col not in df.columns:
+        return px.scatter()
+
+    # Coerce to numeric; keep only finite values
+    s = pd.to_numeric(df[col], errors="coerce")
+    s = s[np.isfinite(s)]
+    if s.empty:
+        return px.scatter()
+    
+    # Heuristic: sqrt rule with sane caps; also cap by number of unique values
+    n_unique = s.nunique(dropna=True)
+    n = int(np.sqrt(len(s))) if len(s) > 0 else 1
+    nbins = max(5, min(60, n, int(n_unique)))  # 5..60, not more than unique values
+
+    fig = px.histogram(s, x=s, nbins=nbins, opacity=0.9, marginal="rug")
+    fig.update_layout(bargap=0.05, margin=dict(l=0, r=0, t=60, b=0))
+    return _apply_title(fig, f"Distribution of {col}", len(s))
+
+
+def build_box(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str]):
+    """Box/violin-like summary; robust against outliers."""
+    if not x_col or x_col not in df.columns or not y_col or y_col not in df.columns:
+        return px.scatter()
+    if not pd.api.types.is_numeric_dtype(df[y_col]):
+        return px.scatter()
+    fig = px.box(df, x=x_col, y=y_col, points="outliers")
+    fig.update_layout(margin=dict(l=0,r=0,t=60,b=0))
+    return _apply_title(fig, f"Distribution of {y_col} by {x_col}", len(df))
+
+
+def build_line(df: pd.DataFrame, t_col: Optional[str], y_col: Optional[str]):
+    """Simple time series: mean(Y) by time (year or exact timestamp)."""
+    if not t_col or t_col not in df.columns or not y_col or y_col not in df.columns:
+        return px.scatter()
+    if not pd.api.types.is_numeric_dtype(df[y_col]):
+        return px.scatter()
+    
+    # If datetime -> group by exact period; if numeric (year-like) -> group by int year
+    s = df[t_col]
+    if pd.api.types.is_datetime64_any_dtype(s):
+        g = df.groupby(s.dt.to_period("M"))[y_col].mean().reset_index()
+        g[t_col] = g[t_col].astype(str)  # Period -> str for axis
+    else:
+        # Coerce to whole-year categories
+        yrs = pd.to_numeric(s, errors="coerce").round(0).astype("Int64")
+        g = (
+            df.assign(__year=yrs)
+              .dropna(subset=["__year"])
+              .groupby("__year")[y_col].mean()
+              .reset_index()
+              .rename(columns={"__year": t_col})
+        )
+        # Make the x-axis categorical with exact year labels
+        g[t_col] = g[t_col].astype("Int64").astype(str)
+
+    fig = px.line(g, x=t_col, y=y_col)
+    fig.update_layout(margin=dict(l=0,r=0,t=60,b=0))
+    # force categorical ordering for year-like axes
+    fig = _lock_year_axis(fig, g[t_col])
+    return _apply_title(fig, f"Mean of {y_col} over {t_col}", len(df))

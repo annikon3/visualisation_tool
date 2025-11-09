@@ -150,12 +150,16 @@ def register(app):
         selected = selected or []
         return selected[:MAX_KEEP]
 
-    # --- C) Fill selectors (filter/x/y/pie) from active columns ---
+    # --- C) Fill selectors (filter/x/y/pie etc.) from active columns ---
     @app.callback(
         Output(IDS.FILTER_COL, "options"),
         Output(IDS.X_COL, "options"),
         Output(IDS.Y_COL, "options"),
         Output(IDS.PIE_COL, "options"),
+        Output(IDS.HIST_COL,  "options"),
+        Output(IDS.BOX_X,     "options"),
+        Output(IDS.BOX_Y,     "options"),
+        Output(IDS.LINE_Y,    "options"),
         Input(IDS.ACTIVE_COLS, "data"),
         Input(IDS.DATA, "data"),
         prevent_initial_call=True,
@@ -163,19 +167,20 @@ def register(app):
     def fill_selectors(active_cols, data_json):
         """
         Populate chart selector dropdowns using currently active columns.
-        - X & Pie: prefer string columns
-        - Y:       prefer numeric columns
-        - Filter:  all active columns
+        - X & Pie & Box_X:                   prefer string columns
+        - Y / Hist / Box_Y / Line_Y: prefer numeric columns
+        - Filter:                    all active columns
         """
         if not active_cols or not data_json:
-            return [], [], [], []
+            empty = []
+            return (empty, empty, empty, empty,
+                    empty, empty, empty,
+                    empty)
         
         df = json_to_df(data_json)
 
         # Keep only valid active columns 
         cols = [c for c in active_cols if c in df.columns]
-        # str_cols = [c for c in cols if df[c].dtype == "string"]
-        # num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(df[c])]
 
         # Split columns by type
         str_cols, num_cols = typed_lists(df, cols)
@@ -185,7 +190,11 @@ def register(app):
             make_options(cols),               # Filter column (all active)
             make_options(str_cols or cols),   # X-axis (categorical preferred)
             make_options(num_cols or cols),   # Y-axis (numeric preferred)
-            make_options(str_cols or cols)    # Pie column (categorical preferred)
+            make_options(str_cols or cols),   # Pie column (categorical preferred)
+            make_options(num_cols or cols),   # Hist column (numeric preferred)
+            make_options(str_cols or cols),   # Box_X column (categorical preferred)
+            make_options(num_cols or cols),   # Box_Y column (numeric preferred)
+            make_options(num_cols or cols)    # Line_Y column (numeric preferred)
         )
 
     # --- C) Filter values (with "All" sentinel) ---
@@ -298,3 +307,18 @@ def register(app):
 
         # Default: select all years
         return opts, [IDS.ALL_SENTINEL]
+    
+    # --- Sync TIME_COL -> LINE_TIME (options + default value) ---
+    @app.callback(
+        Output(IDS.LINE_TIME, "options"),
+        Output(IDS.LINE_TIME, "value"),
+        Input(IDS.TIME_COL, "options"),
+        Input(IDS.TIME_COL, "value"),
+        prevent_initial_call=True,
+    )
+    def sync_line_time_selector(time_opts, time_val):
+        """
+        Reuse the global Time options for the line chart's time selector.
+        Keeps a single source of truth for time-like columns.
+        """
+        return (time_opts or []), (time_val if time_opts else None)
