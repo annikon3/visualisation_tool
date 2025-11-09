@@ -3,6 +3,7 @@ from typing import Optional
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import statsmodels
 
 # ---------- Internal helpers ----------
 
@@ -31,6 +32,21 @@ def _apply_title(fig, title: str, n: int):
         uniformtext_minsize=10,
     )
     return fig
+
+def _auto_numeric_texttemplate(y_values, decimals: int = _LABEL_DECIMALS) -> str:
+    """
+    Decide texttemplate for numeric labels:
+      - If all finite and integer-like -> "%{y}"
+      - Else -> "%{y:.Nf}" where N = decimals
+    Safe with lists/Series/ndarray; falls back to integer style on parsing errors.
+    """
+    try:
+        arr = np.asarray(y_values, dtype=float)
+        if np.isfinite(arr).all() and np.allclose(arr, np.round(arr)):
+            return "%{y}"  # integer style
+        return f"%{{y:.{decimals}f}}"
+    except Exception:
+        return "%{y}"
 
 def _apply_data_labels(fig):
     """
@@ -64,21 +80,26 @@ def _apply_data_labels(fig):
     total = sum(_n(tr) for tr in fig.data)
     if total > _LABELS_MAX_POINTS:
         return fig
-
+    
     for tr in fig.data:
         t = getattr(tr, "type", "")
         has_text = getattr(tr, "text", None) is not None
 
         if t == "bar":
             if not has_text:
-                # show numeric y on top of bar
-                tr.update(texttemplate=f"%{{y:.{_LABEL_DECIMALS}f}}", textposition="outside", cliponaxis=False)
+                tr.update(
+                    texttemplate=_auto_numeric_texttemplate(getattr(tr, "y", None)),
+                    textposition="outside",
+                    cliponaxis=False,
+                )
 
         elif t == "scatter":  # covers line/points charts
-            # If it's a line or markers trace, add text unless already present
             if not has_text:
-                tr.update(mode="lines+markers+text", textposition="top center",
-                          texttemplate=f"%{{y:.{_LABEL_DECIMALS}f}}")
+                tr.update(
+                    mode="lines+markers+text",
+                    textposition="top center",
+                    texttemplate=_auto_numeric_texttemplate(getattr(tr, "y", None)),
+                )
 
         elif t == "histogram":
             if not has_text:
@@ -413,3 +434,37 @@ def build_line(df: pd.DataFrame, t_col: Optional[str], y_col: Optional[str]):
         x_series_for_year_lock=x_for_lock,
         margin=_DEFAULT_MARGIN,
     )
+
+
+def build_scatter(df: pd.DataFrame, x_col: Optional[str], y_col: Optional[str], color_col: Optional[str] = None, trendline: bool = False):
+    """Basic scatter: X vs Y, optional categorical color and OLS trendline."""
+    if not x_col or not y_col or x_col not in df.columns or y_col not in df.columns:
+        return px.scatter()
+    if not pd.api.types.is_numeric_dtype(df[y_col]):
+        return px.scatter()
+
+    trend_arg = None
+    if trendline:
+        # Try to enable OLS; if statsmodels missing, fall back silently
+        try:
+            trend_arg = "ols"
+        except Exception:
+            trend_arg = None  # no hard dependency
+
+    color = color_col if (color_col in df.columns) else None
+    fig = px.scatter(df, x=x_col, y=y_col, color=color, opacity=0.85, trendline=trend_arg, trendline_color_override="#111827")
+    fig.update_traces(
+        hovertemplate=f"%{{x}}<br>{y_col}: %{{y:.{_LABEL_DECIMALS}f}}<extra></extra>"
+    )
+
+    # If x looks like years, ensure categorical axis
+    x_for_lock = df[x_col]
+    fig = _finalize_figure(
+        fig,
+        title=f"{y_col} vs {x_col}" + (f" by {color_col}" if color else ""),
+        n=len(df),
+        x_series_for_year_lock=x_for_lock,
+        margin=_DEFAULT_MARGIN,
+    )
+    return fig
+

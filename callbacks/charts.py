@@ -3,7 +3,7 @@ import plotly.express as px
 
 from utils.ids import IDS
 from utils.helpers import json_to_df
-from services.figures import build_map, build_bar, build_pie, build_hist, build_box, build_line
+from services.figures import build_map, build_bar, build_pie, build_hist, build_box, build_line, build_scatter
 
 # ---------- Helpers ----------
 # Threshold: Over 10 columns on x-axis -> use wide card for chart
@@ -84,7 +84,7 @@ def register_charts_callbacks(app: Dash) -> None:
     def _render_bar(filtered_json, x_col, y_col, visible):
         empty = px.scatter()      
         show = isinstance(visible, (list, tuple, set)) and ("bar" in visible)
-        # When hidden, still compute figure cautiously (keeps previous sizing meta available),
+        # When hidden, still compute figure cautiously (keeps sizing meta available),
         if not filtered_json or not x_col:
             return empty, _with_visibility("chart-card", show)
 
@@ -151,15 +151,19 @@ def register_charts_callbacks(app: Dash) -> None:
         show = isinstance(visible, (list, tuple, set)) and ("pie" in visible)
         base_class = "chart-card"
 
+        # Hard skip: no computation when hidden (small optimization) 
+        if not show:
+            return empty, _with_visibility(base_class, False)
+
         if not filtered_json:
-            return empty, _with_visibility(base_class, show)
+            return empty, _with_visibility(base_class, True)
         
         df = json_to_df(filtered_json)
         if df.empty:
-            return empty, _with_visibility(base_class, show)
+            return empty, _with_visibility(base_class, True)
         
         fig = build_pie(df, pie_col)
-        return fig, _with_visibility(base_class, show)
+        return fig, _with_visibility(base_class, True)
     
     
     # HISTOGRAM: its own column selector + global filters
@@ -176,7 +180,6 @@ def register_charts_callbacks(app: Dash) -> None:
         show = isinstance(visible, (list, tuple, set)) and ("hist" in visible)
         base_class = "chart-card"
 
-        # Hard skip: no computation when hidden (small optimization) 
         if not show:
             return empty, _with_visibility(base_class, False)
 
@@ -248,3 +251,34 @@ def register_charts_callbacks(app: Dash) -> None:
         fig = build_line(df, t_col, y_col)
         return fig, _with_visibility(base_class, True)
     
+
+    # SCATTER: its own column selector + global filters
+    @app.callback(
+        Output(IDS.FIG_SCATTER, "figure"),
+        Output("scatter_card", "className"),
+        Input(IDS.FILTERED_DATA, "data"),
+        Input(IDS.SCATTER_X, "value"),
+        Input(IDS.SCATTER_Y, "value"),
+        Input(IDS.SCATTER_COLOR, "value"),
+        Input(IDS.SCATTER_TREND, "value"),
+        Input(IDS.SHOW_CHARTS, "value"),
+        prevent_initial_call=True,
+    )
+    def _render_scatter(filtered_json, x_col, y_col, color_col, trend_val, visible):
+        empty = px.scatter()
+        show = isinstance(visible, (list, tuple, set)) and ("scatter" in visible)
+        base_class = "chart-card"
+
+        if not show:
+            return empty, _with_visibility(base_class, False)
+
+        if not filtered_json or not x_col or not y_col:
+            return empty, _with_visibility(base_class, True)
+
+        df = json_to_df(filtered_json)
+        if df.empty:
+            return empty, _with_visibility(base_class, True)
+        
+        trend_on = isinstance(trend_val, (list, tuple, set)) and ("ols" in trend_val)
+        fig = build_scatter(df, x_col, y_col, color_col, trendline=trend_on)
+        return fig, _with_visibility(base_class, True)

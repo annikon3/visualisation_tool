@@ -79,10 +79,11 @@ def build_layout():
             options=[
                 {"label": "Map", "value": "map"},
                 {"label": "Bar", "value": "bar"},
+                {"label": "Line", "value": "line"},
                 {"label": "Pie", "value": "pie"},
+                {"label": "Scatter", "value": "scatter"},
                 {"label": "Histogram", "value": "hist"}, 
                 {"label": "Box", "value": "box"}, 
-                {"label": "Line", "value": "line"},
             ],
             # default to map and bar
             value=["map", "bar"],
@@ -96,7 +97,7 @@ def build_layout():
         html.Div([
             html.Div([
                 html.H3("Map Chart"), 
-                dcc.Graph(id=IDS.FIG_MAP, className="chart-plot", config={"responsive": True}),
+                dcc.Graph(id=IDS.FIG_MAP, className="chart-plot"),
                 ], 
                 className="chart-card chart-card--wide", id="map_card"
             ),
@@ -108,10 +109,20 @@ def build_layout():
                     dcc.Dropdown(id=IDS.X_COL, placeholder="Bar X (categorical)"),
                     dcc.Dropdown(id=IDS.Y_COL, placeholder="Bar Y (numeric)"),
                 ], className="chart-controls"),
-                dcc.Graph(id=IDS.FIG_BAR, className="chart-plot", config={"responsive": True}),
+                dcc.Graph(id=IDS.FIG_BAR, className="chart-plot"),
                 ],
                 className="chart-card", id="bar_card"
             ),
+
+            # --- Line chart ---
+            html.Div([
+                html.H3("Line Chart"), 
+                html.Div([
+                    dcc.Dropdown(id=IDS.LINE_TIME, placeholder="Line: time column"),
+                    dcc.Dropdown(id=IDS.LINE_Y,    placeholder="Line: Y (numeric)"),
+                ], className="chart-controls"),
+                dcc.Graph(id=IDS.FIG_LINE, className="chart-plot"),
+            ], className="chart-card", id="line_card"),
 
             # --- Pie chart ---
             html.Div([
@@ -121,6 +132,24 @@ def build_layout():
                 ], className="chart-controls"),
                 dcc.Graph(id=IDS.FIG_PIE, className="chart-plot"),
             ], className="chart-card", id="pie_card"),
+
+            # --- Scatter chart ---
+            html.Div([
+                html.H3("Scatter Chart"), 
+                html.Div([
+                    dcc.Dropdown(id=IDS.SCATTER_X, placeholder="Scatter X (numeric)"),
+                    dcc.Dropdown(id=IDS.SCATTER_Y, placeholder="Scatter Y (numeric)"),
+                    dcc.Dropdown(id=IDS.SCATTER_COLOR, placeholder="Color (categorical, optional)"),
+                    # simple toggle; value == ["ols"] means "on"
+                    dcc.Checklist(
+                        id=IDS.SCATTER_TREND,
+                        options=[{"label": "Trendline (OLS)", "value": "ols"}],
+                        value=[],  # default off
+                        style={"alignSelf": "center"}
+                    ),
+                ], className="chart-controls"),
+                dcc.Graph(id=IDS.FIG_SCATTER, className="chart-plot"),
+            ], className="chart-card", id="scatter_card"),
 
             # --- Histogram ---
             html.Div([
@@ -140,15 +169,5 @@ def build_layout():
                 ], className="chart-controls"),
                 dcc.Graph(id=IDS.FIG_BOX, className="chart-plot"),
             ], className="chart-card", id="box_card"),
-
-            # --- Line chart ---
-            html.Div([
-                html.H3("Line Chart"), 
-                html.Div([
-                    dcc.Dropdown(id=IDS.LINE_TIME, placeholder="Line: time column"),
-                    dcc.Dropdown(id=IDS.LINE_Y,    placeholder="Line: Y (numeric)"),
-                ], className="chart-controls"),
-                dcc.Graph(id=IDS.FIG_LINE, className="chart-plot"),
-            ], className="chart-card", id="line_card"),
         ], className="charts-grid")
     ])

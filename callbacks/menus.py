@@ -160,6 +160,9 @@ def register(app):
         Output(IDS.BOX_X,     "options"),
         Output(IDS.BOX_Y,     "options"),
         Output(IDS.LINE_Y,    "options"),
+        Output(IDS.SCATTER_X,   "options"),
+        Output(IDS.SCATTER_Y,   "options"),
+        Output(IDS.SCATTER_COLOR, "options"),
         Input(IDS.ACTIVE_COLS, "data"),
         Input(IDS.DATA, "data"),
         prevent_initial_call=True,
@@ -173,9 +176,11 @@ def register(app):
         """
         if not active_cols or not data_json:
             empty = []
-            return (empty, empty, empty, empty,
-                    empty, empty, empty,
-                    empty)
+            return (empty, empty, empty, # filter, x, y
+                    empty, empty,        # pie, hist
+                    empty, empty,        # box_x, box_y
+                    empty,               # line_y
+                    empty, empty, empty) # scatter: x, y, color
         
         df = json_to_df(data_json)
 
@@ -187,14 +192,17 @@ def register(app):
 
         # Return menu options
         return (
-            make_options(cols),               # Filter column (all active)
-            make_options(str_cols or cols),   # X-axis (categorical preferred)
-            make_options(num_cols or cols),   # Y-axis (numeric preferred)
-            make_options(str_cols or cols),   # Pie column (categorical preferred)
-            make_options(num_cols or cols),   # Hist column (numeric preferred)
-            make_options(str_cols or cols),   # Box_X column (categorical preferred)
-            make_options(num_cols or cols),   # Box_Y column (numeric preferred)
-            make_options(num_cols or cols)    # Line_Y column (numeric preferred)
+            make_options(cols),               # Filter          (all active)
+            make_options(str_cols or cols),   # X-axis          (categorical preferred)
+            make_options(num_cols or cols),   # Y-axis          (numeric preferred)
+            make_options(str_cols or cols),   # Pie             (categorical preferred)
+            make_options(num_cols or cols),   # Hist            (numeric preferred)
+            make_options(str_cols or cols),   # Box_X           (categorical preferred)
+            make_options(num_cols or cols),   # Box_Y           (numeric preferred)
+            make_options(num_cols or cols),   # Line_Y          (numeric preferred)
+            make_options(num_cols or cols),   # Scatter X       (numeric preferred)
+            make_options(num_cols or cols),   # Scatter Y       (numeric preferred)
+            make_options(str_cols or cols),   # Scatter color   (categorical preferred)
         )
 
     # --- C) Filter values (with "All" sentinel) ---

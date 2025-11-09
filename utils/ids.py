@@ -41,7 +41,11 @@ class IDS:
     BOX_Y      = "box_y"
     LINE_TIME  = "line_time"
     LINE_Y     = "line_y"
-
+    SCATTER_X   = "scatter_x"
+    SCATTER_Y   = "scatter_y"
+    SCATTER_COLOR = "scatter_color"
+    SCATTER_TREND  = "scatter_trend"
+    
     # Charts
     FIG_MAP    = "fig_map"
     FIG_BAR    = "fig_bar"
@@ -49,3 +53,4 @@ class IDS:
     FIG_HIST   = "fig_hist"
     FIG_BOX    = "fig_box"
     FIG_LINE   = "fig_line"
+    FIG_SCATTER = "fig_scatter"
