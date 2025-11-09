@@ -61,8 +61,8 @@ def build_layout():
             dcc.Dropdown(id=IDS.FILTER_VAL, placeholder="Choose a value to filter..."),
 
             # Time filtering (column -> multi-year values)
-            html.P("Note: If no Time columns are chosen in the listing above, you may filter by any of the active columns.", className="help-text"),
             dcc.Dropdown(id=IDS.TIME_COL,   placeholder="Time column"),
+            html.P("Note: If no Time columns are chosen in the listing above, you may filter by any of the active columns.", className="help-text"),
             dcc.Checklist(
                 id=IDS.YEAR_VALUES,
                 options=[],        # filled by menus callback
