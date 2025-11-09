@@ -154,9 +154,14 @@ def categorize_columns(df: pd.DataFrame) -> Dict[str, List[str]]:
         if hit:
             continue
 
-        # 2) Content-based Boolean
+        # 2) Content-based 
+        # Boolean
         if is_boolean_like(s):
             cats["Boolean-like"].append(col)
+            continue
+        # datetime -> Time
+        if pd.api.types.is_datetime64_any_dtype(s):
+            cats["Time"].append(col)
             continue
 
         # 3) Fallback dtype buckets

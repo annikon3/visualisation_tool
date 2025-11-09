@@ -7,7 +7,6 @@
 # -------------------------------------------------------------------
 
 from __future__ import annotations
-from io import StringIO
 from typing import Dict, List
 
 import pandas as pd
@@ -150,12 +149,19 @@ def register(app):
         selected = selected or []
         return selected[:MAX_KEEP]
 
-    # --- C) Fill selectors (filter/x/y/pie) from active columns ---
+    # --- C) Fill selectors (filter/x/y/pie etc.) from active columns ---
     @app.callback(
         Output(IDS.FILTER_COL, "options"),
         Output(IDS.X_COL, "options"),
         Output(IDS.Y_COL, "options"),
         Output(IDS.PIE_COL, "options"),
+        Output(IDS.HIST_COL,  "options"),
+        Output(IDS.BOX_X,     "options"),
+        Output(IDS.BOX_Y,     "options"),
+        Output(IDS.LINE_Y,    "options"),
+        Output(IDS.SCATTER_X,   "options"),
+        Output(IDS.SCATTER_Y,   "options"),
+        Output(IDS.SCATTER_COLOR, "options"),
         Input(IDS.ACTIVE_COLS, "data"),
         Input(IDS.DATA, "data"),
         prevent_initial_call=True,
@@ -163,29 +169,39 @@ def register(app):
     def fill_selectors(active_cols, data_json):
         """
         Populate chart selector dropdowns using currently active columns.
-        - X & Pie: prefer string columns
-        - Y:       prefer numeric columns
-        - Filter:  all active columns
+        - X & Pie & Box_X:                   prefer string columns
+        - Y / Hist / Box_Y / Line_Y: prefer numeric columns
+        - Filter:                    all active columns
         """
         if not active_cols or not data_json:
-            return [], [], [], []
+            empty = []
+            return (empty, empty, empty, # filter, x, y
+                    empty, empty,        # pie, hist
+                    empty, empty,        # box_x, box_y
+                    empty,               # line_y
+                    empty, empty, empty) # scatter: x, y, color
         
         df = json_to_df(data_json)
 
         # Keep only valid active columns 
         cols = [c for c in active_cols if c in df.columns]
-        # str_cols = [c for c in cols if df[c].dtype == "string"]
-        # num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(df[c])]
 
         # Split columns by type
         str_cols, num_cols = typed_lists(df, cols)
 
         # Return menu options
         return (
-            make_options(cols),               # Filter column (all active)
-            make_options(str_cols or cols),   # X-axis (categorical preferred)
-            make_options(num_cols or cols),   # Y-axis (numeric preferred)
-            make_options(str_cols or cols)    # Pie column (categorical preferred)
+            make_options(cols),               # Filter          (all active)
+            make_options(str_cols or cols),   # X-axis          (categorical preferred)
+            make_options(num_cols or cols),   # Y-axis          (numeric preferred)
+            make_options(str_cols or cols),   # Pie             (categorical preferred)
+            make_options(num_cols or cols),   # Hist            (numeric preferred)
+            make_options(str_cols or cols),   # Box_X           (categorical preferred)
+            make_options(num_cols or cols),   # Box_Y           (numeric preferred)
+            make_options(num_cols or cols),   # Line_Y          (numeric preferred)
+            make_options(num_cols or cols),   # Scatter X       (numeric preferred)
+            make_options(num_cols or cols),   # Scatter Y       (numeric preferred)
+            make_options(str_cols or cols),   # Scatter color   (categorical preferred)
         )
 
     # --- C) Filter values (with "All" sentinel) ---
@@ -240,30 +256,57 @@ def register(app):
         prevent_initial_call=True,
     )
     def fill_time_column_options(meta, active_cols, data_json):
-        """Suggest time columns from 'Time' category, limited to active (selected) columns."""
-        if not meta or not active_cols or not data_json:
+        """
+        Suggest time columns from active columns, Prefer meta["Time"], 
+        fall back to active columns that are:
+        1) dtype datetime64, or
+        2) "year-like" according to extract_years() (>= 60% non-null years).
+        Always have "(no time filter)" option with empty string value "".
+        """
+        if not active_cols or not data_json:
             return [], None
 
         df = json_to_df(data_json)
+        active = [c for c in active_cols if c in df.columns]
 
-        # Keep only active + present in df
-        candidates = [c for c in meta.get("Time", []) if c in active_cols and c in df.columns]
+        # 1) Start with meta-provided Time candidates (if any)
+        meta_time = []
+        if meta and "Time" in meta:
+            meta_time = [c for c in meta["Time"] if c in active]
 
-        # Prefer datetime64 -> integer -> string; fall back to all time candidates
-        def rank(c):
-            s = df[c]
-            if pd.api.types.is_datetime64_any_dtype(s): 
-                return 0
-            if pd.api.types.is_integer_dtype(s):       
-                return 1
-            if pd.api.types.is_string_dtype(s):        
-                return 2
+        # Helper: rank for nicer ordering
+        def rank(col: str) -> int:
+            s = df[col]
+            if pd.api.types.is_datetime64_any_dtype(s): return 0
+            if pd.api.types.is_integer_dtype(s):        return 1
+            if pd.api.types.is_string_dtype(s):         return 2
             return 3
 
-        candidates.sort(key=rank)
+        candidates = sorted(meta_time, key=rank)
+
+        # 2) Fallback if meta["Time"] is empty: scan active columns
+        if not candidates:
+            # a) datetime-typed
+            dt_candidates = [c for c in active if pd.api.types.is_datetime64_any_dtype(df[c])]
+
+            # b) 'year-like' with extract_years()
+            def looks_like_years(col: str, thr: float = 0.6) -> bool:
+                try: 
+                    years = extract_years(df, col) 
+                    return (not years.empty) and (years.notna().mean() >= thr)
+                except Exception:
+                    return False
+
+            yearish = [c for c in active if c not in dt_candidates and looks_like_years(c)]
+            candidates = dt_candidates + yearish
+
+        # Always allow opting out
         options = make_options(candidates)
-        default = candidates[0] if candidates else None
+
+        # Default to "no time filter" to avoid confusing auto-selection
+        default = "" if options else None
         return options, default
+    
 
     # --- List distinct years or times for multi-select that drives all charts ---
     @app.callback(
@@ -298,3 +341,21 @@ def register(app):
 
         # Default: select all years
         return opts, [IDS.ALL_SENTINEL]
+    
+    # --- Sync TIME_COL -> LINE_TIME (options + default value) ---
+    @app.callback(
+        Output(IDS.LINE_TIME, "options"),
+        Output(IDS.LINE_TIME, "value"),
+        Input(IDS.TIME_COL, "options"),
+        Input(IDS.TIME_COL, "value"),
+        prevent_initial_call=True,
+    )
+    def sync_line_time_selector(time_opts, time_val):
+        """
+        Mirror TIME_COL options and value to the line chart's time selector.
+        If TIME_COL has options but no value, default to "" (no time filter).
+        """
+        opts = time_opts or []
+        val = time_val if time_val is not None else ("" if opts else None)
+        return opts, val
+    

@@ -61,6 +61,7 @@ def build_layout():
             dcc.Dropdown(id=IDS.FILTER_VAL, placeholder="Choose a value to filter..."),
 
             # Time filtering (column -> multi-year values)
+            html.P("Note: If no Time columns are chosen in the listing above, you may filter by any of the active columns.", className="help-text"),
             dcc.Dropdown(id=IDS.TIME_COL,   placeholder="Time column"),
             dcc.Checklist(
                 id=IDS.YEAR_VALUES,
@@ -72,33 +73,102 @@ def build_layout():
             ),
         ], className="vis-controls"),
 
-        # D) Charts grid
+        # D) Which charts to show (global multi-select)
+        html.P("Choose which charts are visible. You can change this anytime.", className="help-text"),
+        dcc.Checklist(
+            id=IDS.SHOW_CHARTS,
+            options=[
+                {"label": "Map", "value": "map"},
+                {"label": "Bar", "value": "bar"},
+                {"label": "Line", "value": "line"},
+                {"label": "Pie", "value": "pie"},
+                {"label": "Scatter", "value": "scatter"},
+                {"label": "Histogram", "value": "hist"}, 
+                {"label": "Box", "value": "box"}, 
+            ],
+            # default to map and bar
+            value=["map", "bar"],
+            labelStyle={"display": "inline-block", "marginRight": "12px"},
+            className="chart-visibility"
+        ),
+
+        # E) Charts grid
         # per-chart controls together with each chart
         html.H2("Visualisations"),
         html.Div([
-            html.Div(
-                [dcc.Graph(id=IDS.FIG_MAP, className="chart-plot", config={"responsive": True})], 
-                className="chart-card chart-card--wide", 
-                id="map_card"),
-            
-            # --- Bar chart + its own local axis selectors ---
             html.Div([
+                html.H3("Map Chart"), 
+                dcc.Graph(id=IDS.FIG_MAP, className="chart-plot"),
+                ], 
+                className="chart-card chart-card--wide", id="map_card"
+            ),
+            
+            # --- Bar chart ---
+            html.Div([
+                html.H3("Bar Chart"), 
                 html.Div([
                     dcc.Dropdown(id=IDS.X_COL, placeholder="Bar X (categorical)"),
                     dcc.Dropdown(id=IDS.Y_COL, placeholder="Bar Y (numeric)"),
                 ], className="chart-controls"),
-                dcc.Graph(id=IDS.FIG_BAR, className="chart-plot", config={"responsive": True}),
+                dcc.Graph(id=IDS.FIG_BAR, className="chart-plot"),
                 ],
-                className="chart-card",
-                id="bar_card"
+                className="chart-card", id="bar_card"
             ),
 
-            # --- Pie chart + its own local column selector ---
+            # --- Line chart ---
             html.Div([
+                html.H3("Line Chart"), 
+                html.Div([
+                    dcc.Dropdown(id=IDS.LINE_TIME, placeholder="Line: X (time or other)"),
+                    dcc.Dropdown(id=IDS.LINE_Y,    placeholder="Line: Y (numeric)"),
+                ], className="chart-controls"),
+                dcc.Graph(id=IDS.FIG_LINE, className="chart-plot"),
+            ], className="chart-card", id="line_card"),
+
+            # --- Pie chart ---
+            html.Div([
+                html.H3("Pie Chart"), 
                 html.Div([
                     dcc.Dropdown(id=IDS.PIE_COL, placeholder="Pie column (categorical)"),
                 ], className="chart-controls"),
                 dcc.Graph(id=IDS.FIG_PIE, className="chart-plot"),
             ], className="chart-card", id="pie_card"),
+
+            # --- Scatter chart ---
+            html.Div([
+                html.H3("Scatter Chart"), 
+                html.Div([
+                    dcc.Dropdown(id=IDS.SCATTER_X, placeholder="Scatter X (numeric)"),
+                    dcc.Dropdown(id=IDS.SCATTER_Y, placeholder="Scatter Y (numeric)"),
+                    dcc.Dropdown(id=IDS.SCATTER_COLOR, placeholder="Color (categorical, optional)"),
+                    # simple toggle; value == ["ols"] means "on"
+                    dcc.Checklist(
+                        id=IDS.SCATTER_TREND,
+                        options=[{"label": "Trendline (OLS)", "value": "ols"}],
+                        value=[],  # default off
+                        style={"alignSelf": "center"}
+                    ),
+                ], className="chart-controls"),
+                dcc.Graph(id=IDS.FIG_SCATTER, className="chart-plot"),
+            ], className="chart-card", id="scatter_card"),
+
+            # --- Histogram ---
+            html.Div([
+                html.H3("Histogram"), 
+                html.Div([
+                    dcc.Dropdown(id=IDS.HIST_COL, placeholder="Histogram (numeric)"),
+                ], className="chart-controls"),
+                dcc.Graph(id=IDS.FIG_HIST, className="chart-plot"),
+            ], className="chart-card", id="hist_card"),
+
+            # --- Box chart ---
+            html.Div([
+                html.H3("Box Chart"), 
+                html.Div([
+                    dcc.Dropdown(id=IDS.BOX_X, placeholder="Box: X (categorical)"),
+                    dcc.Dropdown(id=IDS.BOX_Y, placeholder="Box: Y (numeric)"),
+                ], className="chart-controls"),
+                dcc.Graph(id=IDS.FIG_BOX, className="chart-plot"),
+            ], className="chart-card", id="box_card"),
         ], className="charts-grid")
     ])

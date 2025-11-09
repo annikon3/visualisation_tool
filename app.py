@@ -6,17 +6,8 @@ from callbacks.upload import register as register_upload_callbacks
 from callbacks.menus import register as register_menu_callbacks
 from callbacks.filters import register as register_filter_callbacks
 
-
-# TODO: Add new charts: line charts, stackable charts? 
-
 # TODO: Test with new datasets. 
-
-# TODO: Add multiselection ticks or boxes for charts opened (don't show all charts by default). 
-
 # TODO: When selecting columns for analysis, if user types a column name and it is already 'active', give feedback e.g. "already selected". 
-
-# TODO: Prevent charts from going on top of each other when switching between screen sizes (map gets covered for some reason)
-
 
 # Create app; suppress_callback_exceptions=True allows callbacks to 
 # reference layout parts that may be loaded or replaced dynamically.
