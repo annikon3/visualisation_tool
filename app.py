@@ -6,21 +6,8 @@ from callbacks.upload import register as register_upload_callbacks
 from callbacks.menus import register as register_menu_callbacks
 from callbacks.filters import register as register_filter_callbacks
 
-
-# TODO: Allow line chart to use other than time column
-
-# TODO: Make charts wide when small screen
-
-# TODO: Consider: if recognizing a time column fails, allow to add one manually? Or do not require it? 
-
-# TODO: Should charts show more info on hover? Which columns should info be limited to? 
-
 # TODO: Test with new datasets. 
-
 # TODO: When selecting columns for analysis, if user types a column name and it is already 'active', give feedback e.g. "already selected". 
-
-# TODO: Prevent charts from going on top of each other when switching between screen sizes (map gets covered for some reason)
-
 
 # Create app; suppress_callback_exceptions=True allows callbacks to 
 # reference layout parts that may be loaded or replaced dynamically.
