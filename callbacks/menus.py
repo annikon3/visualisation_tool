@@ -7,7 +7,6 @@
 # -------------------------------------------------------------------
 
 from __future__ import annotations
-from io import StringIO
 from typing import Dict, List
 
 import pandas as pd
@@ -257,30 +256,57 @@ def register(app):
         prevent_initial_call=True,
     )
     def fill_time_column_options(meta, active_cols, data_json):
-        """Suggest time columns from 'Time' category, limited to active (selected) columns."""
-        if not meta or not active_cols or not data_json:
+        """
+        Suggest time columns from active columns, Prefer meta["Time"], 
+        fall back to active columns that are:
+        1) dtype datetime64, or
+        2) "year-like" according to extract_years() (>= 60% non-null years).
+        Always have "(no time filter)" option with empty string value "".
+        """
+        if not active_cols or not data_json:
             return [], None
 
         df = json_to_df(data_json)
+        active = [c for c in active_cols if c in df.columns]
 
-        # Keep only active + present in df
-        candidates = [c for c in meta.get("Time", []) if c in active_cols and c in df.columns]
+        # 1) Start with meta-provided Time candidates (if any)
+        meta_time = []
+        if meta and "Time" in meta:
+            meta_time = [c for c in meta["Time"] if c in active]
 
-        # Prefer datetime64 -> integer -> string; fall back to all time candidates
-        def rank(c):
-            s = df[c]
-            if pd.api.types.is_datetime64_any_dtype(s): 
-                return 0
-            if pd.api.types.is_integer_dtype(s):       
-                return 1
-            if pd.api.types.is_string_dtype(s):        
-                return 2
+        # Helper: rank for nicer ordering
+        def rank(col: str) -> int:
+            s = df[col]
+            if pd.api.types.is_datetime64_any_dtype(s): return 0
+            if pd.api.types.is_integer_dtype(s):        return 1
+            if pd.api.types.is_string_dtype(s):         return 2
             return 3
 
-        candidates.sort(key=rank)
+        candidates = sorted(meta_time, key=rank)
+
+        # 2) Fallback if meta["Time"] is empty: scan active columns
+        if not candidates:
+            # a) datetime-typed
+            dt_candidates = [c for c in active if pd.api.types.is_datetime64_any_dtype(df[c])]
+
+            # b) 'year-like' with extract_years()
+            def looks_like_years(col: str, thr: float = 0.6) -> bool:
+                try: 
+                    years = extract_years(df, col) 
+                    return (not years.empty) and (years.notna().mean() >= thr)
+                except Exception:
+                    return False
+
+            yearish = [c for c in active if c not in dt_candidates and looks_like_years(c)]
+            candidates = dt_candidates + yearish
+
+        # Always allow opting out
         options = make_options(candidates)
-        default = candidates[0] if candidates else None
+
+        # Default to "no time filter" to avoid confusing auto-selection
+        default = "" if options else None
         return options, default
+    
 
     # --- List distinct years or times for multi-select that drives all charts ---
     @app.callback(
@@ -326,7 +352,10 @@ def register(app):
     )
     def sync_line_time_selector(time_opts, time_val):
         """
-        Reuse the global Time options for the line chart's time selector.
-        Keeps a single source of truth for time-like columns.
+        Mirror TIME_COL options and value to the line chart's time selector.
+        If TIME_COL has options but no value, default to "" (no time filter).
         """
-        return (time_opts or []), (time_val if time_opts else None)
+        opts = time_opts or []
+        val = time_val if time_val is not None else ("" if opts else None)
+        return opts, val
+    
