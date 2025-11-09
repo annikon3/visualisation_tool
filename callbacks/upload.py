@@ -9,10 +9,11 @@ import pandas as pd
 from dash import Input, Output, State
 
 from utils.ids import IDS
+from utils.jsonloaders import load_json_or_geojson
 from services.preprocess import preprocess_dataframe
 from services.classify import categorize_columns
 
-# Small helper kept local to this feature.
+# --- Internal helper ---
 def _read_uploaded(contents: str, filename: str) -> pd.DataFrame:
     """
     Decode the uploaded file and return a DataFrame.
@@ -28,9 +29,9 @@ def _read_uploaded(contents: str, filename: str) -> pd.DataFrame:
             na_values=["", " ", "-", "NA", "N/A", "nan", "NaN"]
         )
 
-    # JSON & GeoJSON
+    # JSON & GeoJSON via dedicated loader
     if filename and filename.lower().endswith((".json", ".geojson")):
-        return pd.read_json(io.BytesIO(payload))
+        return load_json_or_geojson(payload)
 
     # Default: CSV
     return pd.read_csv(io.BytesIO(payload))
