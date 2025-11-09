@@ -61,6 +61,7 @@ def build_layout():
             dcc.Dropdown(id=IDS.FILTER_VAL, placeholder="Choose a value to filter..."),
 
             # Time filtering (column -> multi-year values)
+            html.P("Note: If no Time columns are chosen in the listing above, you may filter by any of the active columns.", className="help-text"),
             dcc.Dropdown(id=IDS.TIME_COL,   placeholder="Time column"),
             dcc.Checklist(
                 id=IDS.YEAR_VALUES,
@@ -118,7 +119,7 @@ def build_layout():
             html.Div([
                 html.H3("Line Chart"), 
                 html.Div([
-                    dcc.Dropdown(id=IDS.LINE_TIME, placeholder="Line: time column"),
+                    dcc.Dropdown(id=IDS.LINE_TIME, placeholder="Line: X (time or other)"),
                     dcc.Dropdown(id=IDS.LINE_Y,    placeholder="Line: Y (numeric)"),
                 ], className="chart-controls"),
                 dcc.Graph(id=IDS.FIG_LINE, className="chart-plot"),
