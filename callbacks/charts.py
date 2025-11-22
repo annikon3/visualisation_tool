@@ -267,7 +267,7 @@ def register_charts_callbacks(app: Dash) -> None:
     def _render_scatter(filtered_json, x_col, y_col, color_col, trend_val, visible):
         empty = px.scatter()
         show = isinstance(visible, (list, tuple, set)) and ("scatter" in visible)
-        base_class = "chart-card"
+        base_class = "chart-card chart-card--wide"
 
         if not show:
             return empty, _with_visibility(base_class, False)
