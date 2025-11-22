@@ -52,7 +52,7 @@ def build_layout():
         html.H2("Choose filters"),
         html.P(
                 "Use the dropdowns below to filter data globally. "
-                "Filters update all charts simultaneously.", 
+                "Filters update all charts simultaneously. ", 
                 className="help-text"
             ),
         html.Div([
@@ -62,8 +62,10 @@ def build_layout():
 
             # Time filtering (column -> multi-year values)
             dcc.Dropdown(id=IDS.TIME_COL,   placeholder="Time column"),
-            html.P("Note: If no Time columns are chosen in the listing above, you may filter by any of the active columns.", className="help-text"),
-            dcc.Checklist(
+        ], className="vis-controls"),            
+        
+        html.P("Note: If no Time columns are chosen in the listing above, you may filter by any of the active columns.", className="help-text"),
+        dcc.Checklist(
                 id=IDS.YEAR_VALUES,
                 options=[],        # filled by menus callback
                 value=[],          # default set by menus callback
@@ -71,7 +73,6 @@ def build_layout():
                 inputClassName="year-chip", 
                 className="year-checklist"
             ),
-        ], className="vis-controls"),
 
         # D) Which charts to show (global multi-select)
         html.P("Choose which charts are visible. You can change this anytime.", className="help-text"),
