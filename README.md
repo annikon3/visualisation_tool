@@ -3,7 +3,7 @@
 **visualisation_tool** is a Plotly Dash web application originally developed for fast visualisation of forestry data.  
 It supports `.csv`, `.xls`, `.xlsx`, `.json`, and `.geojson` file formats and automatically preprocesses and categorises uploaded data for instant visual exploration.
 
-While initially created for forestry datasets, the tool can visualise **any structured tabular or spatial data**, making it a general-purpose solution for fast, interactive data analysis.
+While initially created as a part of my thesis and for forestry datasets, the tool can visualise **any structured tabular or spatial data**, making it a general-purpose solution for fast, interactive data analysis.
 
 ---
 
